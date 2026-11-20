@@ -1,0 +1,6 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pyserial>=3.5
+# Only used by server/tests, but kept here so the single environment the
+# launcher builds can run the checks without a second install step.
+httpx>=0.27

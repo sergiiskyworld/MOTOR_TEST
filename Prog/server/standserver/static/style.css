@@ -1,0 +1,333 @@
+:root {
+  --bg: #11151a;
+  --panel: #1a2029;
+  --panel-2: #222a35;
+  --line: #2d3644;
+  --text: #e6ecf3;
+  --muted: #8b98a9;
+  --accent: #4da3ff;
+  --ok: #38c172;
+  --warn: #f6a935;
+  --danger: #e8433d;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* ---------- top bar ---------- */
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  background: #0d1116;
+  border-bottom: 1px solid var(--line);
+}
+
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.brand strong { white-space: nowrap; }
+
+.dot {
+  width: 11px; height: 11px; border-radius: 50%;
+  background: var(--danger);
+  box-shadow: 0 0 10px currentColor;
+  flex: none;
+}
+.dot.online { background: var(--ok); }
+.dot.stale  { background: var(--warn); }
+
+.topbar-right { display: flex; align-items: center; gap: 12px; }
+
+.badge {
+  font: 600 13px/1 var(--mono);
+  letter-spacing: .06em;
+  padding: 7px 12px;
+  border-radius: 6px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  white-space: nowrap;
+}
+.badge.safe  { color: var(--ok);     border-color: #2c5c42; }
+.badge.ok    { color: var(--ok);     border-color: #2c5c42; }
+.badge.warn  { color: #111; background: var(--warn); border-color: var(--warn); }
+.badge.armed { color: #fff; background: var(--danger); border-color: var(--danger); }
+.badge.fault { color: #111; background: var(--warn);   border-color: var(--warn); }
+
+.icon-btn {
+  background: var(--panel-2);
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  /* Sized to stay comfortably tappable next to the emergency stop without
+     competing with it for attention. */
+  width: 40px;
+  height: 40px;
+  font-size: 19px;
+  line-height: 1;
+  cursor: pointer;
+}
+.icon-btn:hover { border-color: var(--accent); color: var(--text); }
+
+.estop {
+  background: var(--danger);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 22px;
+  font: 800 16px/1 system-ui, sans-serif;
+  letter-spacing: .08em;
+  cursor: pointer;
+  box-shadow: 0 0 0 3px rgba(232, 67, 61, .18);
+}
+.estop:active { transform: translateY(1px); }
+
+/* ---------- banner ---------- */
+
+.banner {
+  padding: 10px 16px;
+  background: var(--warn);
+  color: #1a1206;
+  font-weight: 600;
+  text-align: center;
+}
+.hidden { display: none !important; }
+
+/* ---------- layout ---------- */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 14px;
+  padding: 14px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+.span2 { grid-column: span 2; }
+@media (max-width: 720px) { .span2 { grid-column: span 1; } }
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 16px 16px;
+  min-width: 0;
+}
+.card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.card h2 { margin: 0; font-size: 14px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+
+.muted { color: var(--muted); }
+.small { font-size: 12px; }
+.hint  { margin: 10px 0 0; font-size: 12px; color: var(--muted); }
+.warn-text { color: var(--warn); }
+
+/* ---------- buttons ---------- */
+
+.btn {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 14px;
+  font: 600 14px/1 system-ui, sans-serif;
+  cursor: pointer;
+}
+.btn:hover { border-color: var(--accent); }
+/* Green means "this is the state the stand is in right now", so the grey
+   button of a pair is always the one still worth pressing. ARM used to be
+   green unconditionally, which told the operator nothing. */
+.btn.active {
+  background: #1d4430;
+  border-color: var(--ok);
+  color: #bdf0d2;
+  box-shadow: inset 0 0 0 1px var(--ok);
+}
+.btn.warn  { background: #4a3714; border-color: #7a5a1f; color: #f8dba5; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+
+.arm-group, .row-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+.row-buttons { margin-top: 10px; }
+
+/* ---------- throttle ---------- */
+
+.throttle { display: flex; align-items: center; gap: 16px; }
+
+input[type=range] {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  height: 34px;
+  background: transparent;
+  cursor: pointer;
+}
+input[type=range]::-webkit-slider-runnable-track {
+  height: 14px; border-radius: 7px;
+  background: linear-gradient(90deg, #2b6a45, #b8912a 60%, #8e2b27);
+}
+input[type=range]::-moz-range-track {
+  height: 14px; border-radius: 7px;
+  background: linear-gradient(90deg, #2b6a45, #b8912a 60%, #8e2b27);
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 30px; height: 30px; margin-top: -8px;
+  border-radius: 50%;
+  background: #eef3f9;
+  border: 3px solid #0d1116;
+  box-shadow: 0 2px 6px rgba(0,0,0,.5);
+}
+input[type=range]::-moz-range-thumb {
+  width: 24px; height: 24px; border-radius: 50%;
+  background: #eef3f9; border: 3px solid #0d1116;
+}
+
+.throttle-readout { display: flex; flex-direction: column; align-items: flex-end; min-width: 120px; }
+.throttle-readout > span:first-child { font: 700 34px/1 var(--mono); }
+.throttle-readout .unit { display: none; }
+.throttle-readout > span:first-child::after { content: "%"; font-size: 18px; color: var(--muted); margin-left: 2px; }
+
+.presets { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 12px; }
+.presets button {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 7px;
+  padding: 8px 0;
+  font: 600 13px/1 var(--mono);
+  cursor: pointer;
+}
+.presets button:hover { border-color: var(--accent); }
+.presets button.active { background: #1d4430; border-color: var(--ok); color: #bdf0d2; }
+
+/* ---------- telemetry tiles ---------- */
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+}
+.tile {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.tile-label { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.tile-value { font: 700 26px/1.1 var(--mono); overflow: hidden; text-overflow: ellipsis; }
+.tile-unit  { font-size: 11px; color: var(--muted); }
+.tile-foot  { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.tile-btn {
+  background: var(--panel);
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 5px 9px;
+  font: 600 11px/1 system-ui, sans-serif;
+  cursor: pointer;
+}
+.tile-btn:hover { border-color: var(--accent); color: var(--text); }
+.tiles-note { grid-column: 1 / -1; margin: 0; }
+
+/* Цифры под графиком. Табличные цифры держат ширину, иначе строка дёргается
+   на каждом обновлении максимума. */
+.peaks {
+  margin: 2px 0 10px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- forms ---------- */
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.row > span { font-size: 13px; color: var(--muted); }
+
+input[type=text], input[type=number], select {
+  background: #0f141a;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 8px 10px;
+  font: 14px/1 var(--mono);
+  min-width: 0;
+  width: 150px;
+}
+select { width: 100%; }
+input[type=text]#atSteps { width: 190px; }
+input:focus, select:focus { outline: none; border-color: var(--accent); }
+
+/* ---------- charts ---------- */
+
+/* The height must be pinned in CSS. The renderer sets canvas.height from
+   clientHeight scaled by devicePixelRatio, so leaving the height to the
+   intrinsic attribute makes the element grow on every frame on retina. */
+canvas { width: 100%; height: 130px; display: block; margin-bottom: 8px; border-radius: 8px; background: #0f141a; }
+
+/* ---------- progress ---------- */
+
+.progress { position: relative; margin-top: 12px; height: 26px; background: #0f141a; border-radius: 7px; overflow: hidden; border: 1px solid var(--line); }
+.progress .bar { height: 100%; width: 0; background: #2c6b48; transition: width .2s; }
+.progress span { position: absolute; inset: 0; display: grid; place-items: center; font: 600 12px/1 var(--mono); }
+
+/* ---------- calibration dialog ---------- */
+
+.modal {
+  width: min(520px, calc(100vw - 28px));
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+}
+.modal::backdrop { background: rgba(6, 9, 13, .7); }
+.modal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.modal-head h2 { margin: 0; font-size: 15px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+
+.cal-saved { margin: 10px 0 0; font-size: 12px; color: var(--muted); }
+.cal-saved.ok   { color: var(--ok); }
+.cal-saved.warn { color: var(--warn); }
+
+.cal-block { border-top: 1px solid var(--line); margin-top: 14px; padding-top: 12px; }
+.cal-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.cal-head h3 { margin: 0; font-size: 14px; }
+.cal-now { font: 700 20px/1 var(--mono); }
+.cal-now b { font-weight: 700; }
+.cal-act { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.cal-act input { flex: 1; width: auto; }
+.cal-block p { margin: 8px 0 0; }
+
+/* ---------- lists ---------- */
+
+.log, .logs { list-style: none; margin: 0; padding: 0; max-height: 190px; overflow-y: auto; }
+.log li, .logs li { font: 12px/1.5 var(--mono); padding: 3px 0; border-bottom: 1px solid #222a35; }
+.log li.warn  { color: var(--warn); }
+.log li.error { color: var(--danger); }
+.logs a { color: var(--accent); text-decoration: none; }
+details summary { cursor: pointer; font-size: 13px; color: var(--muted); margin-top: 10px; }
