@@ -1,86 +1,90 @@
-# Безопасность
+# Safety
 
-Регулятор на 65 А с винтом на валу — это инструмент, способный нанести тяжёлую
-травму. Программные защиты ниже нужны, но они вторичны по отношению к
-физической защите.
+A 65 A ESC with a propeller on the shaft is a tool capable of causing a
+serious injury. The software protections below are needed, but they are
+secondary to physical protection.
 
-## Физическая часть
+## The physical part
 
-- **Ограждение в плоскости винта.** Разлетающаяся лопасть — основная опасность.
-  Поликарбонатный экран или стальная сетка между винтом и оператором.
-- **Никогда не находитесь в плоскости вращения.** Стойте сбоку, не спереди и не
-  сзади.
-- **Проверяйте затяжку** гайки винта и крепления мотора перед каждым прогоном.
-  Вибрация откручивает всё.
-- **Убирайте посторонние предметы** со стола: тряпки, стяжки, провода затягивает
-  в винт.
-- **Аккумулятор через предохранитель или ограничитель тока**, рассчитанный
-  осознанно под режим испытаний.
-- **Первые прогоны — без винта.** Проверка связи, протокола и направления
-  вращения делается на голом валу.
+- **A barrier in the plane of the propeller.** A blade coming apart is the
+  main danger. A polycarbonate screen or steel mesh between the propeller and
+  the operator.
+- **Never stand in the plane of rotation.** Stand to the side, not in front
+  and not behind.
+- **Check the tightness** of the propeller nut and of the motor mount before
+  every run. Vibration undoes everything.
+- **Clear loose objects** off the table: rags, cable ties and wires get pulled
+  into the propeller.
+- **The battery through a fuse or a current limiter**, rated deliberately for
+  the test regime.
+- **The first runs go without a propeller.** The link, the protocol and the
+  direction of rotation are checked on a bare shaft.
 
-## Цепочка «мёртвого человека»
+## The dead-man chain
 
-Остановка мотора не требует активных действий — она происходит сама, как только
-что-то в цепочке замолкает:
+Stopping the motor takes no active effort, it happens by itself as soon as
+something in the chain falls silent:
 
-| Звено | Период | Что делает при тишине |
+| Link | Period | What it does on silence |
 |---|---|---|
-| Браузер | шлёт пульс каждые 100 мс | — |
-| Сервер | ретранслирует `K` 20 раз в секунду | перестаёт слать, если пульса от браузера нет дольше 400 мс |
-| Прошивка | ждёт любую команду | глушит мотор и фиксирует аварию, если тишина дольше 300 мс |
+| Browser | sends a heartbeat every 100 ms | — |
+| Server | relays `K` 20 times per second | stops sending if there has been no heartbeat from the browser for longer than 400 ms |
+| Firmware | waits for any command | kills the motor and latches a fault if the silence lasts longer than 300 ms |
 
-То есть мотор останавливается при: закрытии вкладки, зависании браузера, потере
-Wi-Fi, засыпании ноутбука, падении сервера, отключении USB-кабеля.
+That is, the motor stops when the tab is closed, when the browser hangs, when
+Wi-Fi is lost, when the laptop goes to sleep, when the server dies, when the
+USB cable is unplugged.
 
-Отдельно обработан переход вкладки в фон: браузеры замедляют таймеры в скрытых
-вкладках, поэтому страница снимает газ осознанно, а не доводит дело до
-сторожевого таймера. Мотор останавливается штатно, без фиксации аварии.
+The tab moving into the background is handled separately: browsers slow their
+timers down in hidden tabs, so the page removes the throttle deliberately
+rather than letting it come to the watchdog. The motor stops normally, with no
+fault latched.
 
-## Программные защиты
+## Software protections
 
-| Защита | Настройка | Поведение |
+| Protection | Setting | Behaviour |
 |---|---|---|
-| Ограничение газа | «Предел газа, %» | команды выше предела обрезаются в прошивке |
-| Ограничение нарастания | «Рампа, %/с» | газ не может измениться скачком |
-| Отсечка по току | «Отсечка по току, А» | мгновенный сброс газа и фиксация аварии |
-| Отсечка по температуре | «Отсечка по t° ESC» | то же самое |
-| Аварийный стоп | пробел или кнопка СТОП | мгновенный сброс газа, минуя рампу |
+| Throttle limit | "Throttle limit, %" | commands above the limit are clipped in the firmware |
+| Slew-rate limit | "Ramp, %/s" | the throttle cannot change in a step |
+| Current cutoff | "Current cutoff, A" | the throttle drops instantly and the fault latches |
+| Temperature cutoff | "ESC t° cutoff" | the same |
+| Emergency stop | spacebar or the STOP button | the throttle drops instantly, bypassing the ramp |
 
-Отсечка по току сравнивает порог с большим из двух независимых измерений —
-данными ESC и датчиком на плате. Ноль в поле отключает защиту.
+The current cutoff compares the threshold against the larger of two
+independent measurements, the ESC data and the sensor on the board. A zero in
+the field disables the protection.
 
-Авария **фиксируется**: пока оператор не нажмёт «Сброс аварии», подать газ
-снова невозможно. Это сделано намеренно — чтобы неисправность нельзя было
-проскочить, не заметив.
+A fault **latches**: until the operator presses "Clear fault", the throttle
+cannot be enabled again. This was done deliberately, so that a failure cannot
+be slipped past unnoticed.
 
-## Первое включение
+## First power-up
 
-Ни прошивка, ни сервер ещё не проверялись на реальном железе. Пройдите по
-шагам, не пропуская.
+Neither the firmware nor the server has been checked on real hardware yet. Go
+through the steps without skipping any.
 
-1. **Без винта, без аккумулятора.** Прошейте плату, подключите USB, откройте
-   интерфейс. Убедитесь, что зелёная точка горит и идёт телеметрия.
-2. **Без винта, с аккумулятором.** Появятся напряжение и температура ESC.
-   Нажмите «Пикнуть мотором» — регулятор должен отозваться.
-3. **Без винта, малый газ.** ARM, газ 5–10 %. Вал должен вращаться ровно,
-   обороты в интерфейсе — расти пропорционально газу. Проверьте направление
-   вращения.
-4. **Проверьте аварийную остановку** на работающем моторе: нажмите пробел.
-   Мотор должен встать немедленно, появиться баннер аварии.
-5. **Проверьте потерю связи**: на малом газе выдерните USB-кабель. Мотор должен
-   остановиться. Это самая важная проверка из всех — делайте её обязательно и
-   обязательно без винта.
-6. **Только теперь ставьте винт** и начинайте с 10–20 % газа.
+1. **No propeller, no battery.** Flash the board, plug in USB, open the
+   interface. Make sure the green dot is lit and telemetry is coming in.
+2. **No propeller, with the battery.** Voltage and ESC temperature will
+   appear. Press "Beep the motor", the ESC should answer.
+3. **No propeller, low throttle.** ARM, throttle 5–10 %. The shaft should turn
+   smoothly, and the rpm in the interface should rise in proportion to the
+   throttle. Check the direction of rotation.
+4. **Check the emergency stop** on a running motor: press the spacebar. The
+   motor must stop immediately and the fault banner must appear.
+5. **Check the loss of the link**: at low throttle, pull the USB cable out.
+   The motor must stop. This is the most important check of them all, do it
+   without fail and do it without fail with no propeller.
+6. **Only now fit the propeller** and start at 10–20 % throttle.
 
-## Если обороты выглядят неправдоподобно
+## If the rpm looks implausible
 
-Скорее всего неверно указано число магнитов мотора. Ток и напряжение при этом
-останутся верными, а обороты будут отличаться в целое число раз. Считать
-магниты нужно на роторе (в колоколе), а не зубья статора.
+Most likely the number of motor magnets is set wrong. Current and voltage stay
+correct while the rpm is off by an integer factor. The magnets have to be
+counted on the rotor (inside the bell), not the teeth of the stator.
 
-## Если мотор не запускается
+## If the motor does not start
 
-Сначала проверьте, не меняли ли протокол без передёргивания питания
-регулятора — AM32 запоминает протокол до перезагрузки, см.
-[ESC_AM32.md](ESC_AM32.md). Это самая частая причина.
+First check whether the protocol was changed without power-cycling the ESC,
+AM32 remembers the protocol until it reboots, see
+[ESC_AM32.md](ESC_AM32.md). This is the most frequent cause.

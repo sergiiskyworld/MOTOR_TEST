@@ -1,26 +1,27 @@
 #!/usr/bin/env bash
 #
-# Заливка прошивки стенда в полётный контроллер через USB DFU.
+# Flashing the stand firmware into the flight controller over USB DFU.
 #
-# Скрипт ждёт, пока плата появится в режиме DFU, снимает резервную копию
-# текущего содержимого флеша и только потом пишет новую прошивку.
+# The script waits until the board shows up in DFU mode, takes a backup copy
+# of the current flash contents and only then writes the new firmware.
 #
-#   ./scripts/flash.sh            собрать и залить
-#   ./scripts/flash.sh --no-build использовать уже собранный образ
+#   ./scripts/flash.sh            build and flash
+#   ./scripts/flash.sh --no-build use an image that is already built
 #
-# Как ввести плату в DFU:
-#   - из интерфейса стенда: кнопка «Перейти в DFU» (если прошивка уже стоит);
-#   - удерживая кнопку BOOT на плате, воткнуть USB;
-#   - или замкнуть площадки BOOT в момент подачи USB.
+# How to put the board into DFU:
+#   - from the stand interface: the "Enter DFU" button (if the firmware is
+#     already installed);
+#   - hold the BOOT button on the board down and plug in USB;
+#   - or short the BOOT pads at the moment USB power is applied.
 
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FIRMWARE_DIR="$ROOT/firmware"
-IMAGE="$FIRMWARE_DIR/.pio/build/orqaf405pro/firmware.bin"
+IMAGE="$FIRMWARE_DIR/.pio/build/f405/firmware.bin"
 BACKUP_DIR="$ROOT/firmware/backup"
 
-# ROM-загрузчик STM32 представляется этим идентификатором.
+# The STM32 ROM bootloader presents itself with this identifier.
 DFU_ID="0483:df11"
 FLASH_ORIGIN="0x08000000"
 FLASH_SIZE="0x100000"
@@ -36,7 +37,7 @@ find_dfu_util() {
         echo "$bundled"
         return
     fi
-    echo "dfu-util не найден. Установите его: brew install dfu-util" >&2
+    echo "dfu-util was not found. Install it: brew install dfu-util" >&2
     exit 1
 }
 
@@ -47,58 +48,60 @@ find_pio() {
             return
         fi
     done
-    echo "platformio не найден. Установите его: pip install platformio" >&2
+    echo "platformio was not found. Install it: pip install platformio" >&2
     exit 1
 }
 
 DFU_UTIL="$(find_dfu_util)"
 
 if [[ "${1:-}" != "--no-build" ]]; then
-    echo "==> Сборка прошивки"
+    echo "==> Building the firmware"
     "$(find_pio)" run -d "$FIRMWARE_DIR"
 fi
 
 if [[ ! -f "$IMAGE" ]]; then
-    echo "Образ не найден: $IMAGE" >&2
+    echo "Image not found: $IMAGE" >&2
     exit 1
 fi
-echo "==> Образ: $IMAGE ($(wc -c < "$IMAGE" | tr -d ' ') байт)"
+echo "==> Image: $IMAGE ($(wc -c < "$IMAGE" | tr -d ' ') bytes)"
 
-# Сервер стенда держит USB-порт, пока в браузере открыто окно, и дерётся за
-# него с dfu-util. Просим отпустить; если сервер не запущен, молча идём дальше.
+# The stand server holds the USB port while the browser window is open and
+# fights dfu-util for it. We ask it to let go; if the server is not running,
+# we quietly carry on.
 if curl -fsS -m 2 -X POST "http://127.0.0.1:${STAND_PORT:-8000}/api/port/release" \
         -o /dev/null 2>/dev/null; then
-    echo "==> Сервер стенда отпустил порт"
+    echo "==> The stand server released the port"
 fi
 
 echo
-echo "==> Ожидание платы в режиме DFU (до ${WAIT_SECONDS} с)"
-echo "    Зажмите кнопку BOOT на плате и переподключите USB."
+echo "==> Waiting for the board in DFU mode (up to ${WAIT_SECONDS} s)"
+echo "    Hold the BOOT button on the board down and reconnect USB."
 echo
 
 deadline=$(( $(date +%s) + WAIT_SECONDS ))
 until "$DFU_UTIL" -l 2>/dev/null | grep -q "$DFU_ID"; do
     if (( $(date +%s) >= deadline )); then
-        echo "Плата в DFU так и не появилась." >&2
-        echo "Проверьте: кнопка BOOT удерживалась в момент подачи питания по USB." >&2
+        echo "The board never showed up in DFU." >&2
+        echo "Check that the BOOT button was held down at the moment USB power was applied." >&2
         exit 1
     fi
     sleep 1
 done
-echo "==> Плата найдена в DFU"
+echo "==> The board was found in DFU"
 
 mkdir -p "$BACKUP_DIR"
 BACKUP="$BACKUP_DIR/before-flash-$(date +%Y%m%d-%H%M%S).bin"
 echo
-echo "==> Резервная копия текущего флеша -> $(basename "$BACKUP")"
-# Без этого вернуть исходную прошивку с её загрузчиком будет нечем.
+echo "==> Backup copy of the current flash -> $(basename "$BACKUP")"
+# Without this there would be nothing to restore the original firmware and its
+# bootloader from.
 "$DFU_UTIL" -d "$DFU_ID" -a 0 -s "${FLASH_ORIGIN}:${FLASH_SIZE}" -U "$BACKUP"
 
 echo
-echo "==> Заливка прошивки"
+echo "==> Flashing the firmware"
 "$DFU_UTIL" -d "$DFU_ID" -a 0 -s "${FLASH_ORIGIN}:leave" -D "$IMAGE"
 
 echo
-echo "==> Готово. Плата перезапускается."
-echo "    Резервная копия: $BACKUP"
-echo "    Через пару секунд она появится как последовательный порт 0483:5740."
+echo "==> Done. The board is restarting."
+echo "    Backup copy: $BACKUP"
+echo "    In a couple of seconds it will appear as serial port 0483:5740."

@@ -6,10 +6,10 @@
 
 #define FW_NAME    "thrust-stand-fc"
 #define FW_VERSION "1.0.0"
-#define FW_BOARD   "OrqaF405Pro"
+#define FW_BOARD   "F405"
 
 // ---------------------------------------------------------------------------
-// Pin map, taken from the ArduPilot hwdef for OrqaF405Pro.
+// Pin map, taken from ArduPilot's hwdef for this board.
 // Only M1 and M3 are wired to the stand; they are also the only two outputs on
 // this board that the vendor marked BIDIR.
 // ---------------------------------------------------------------------------

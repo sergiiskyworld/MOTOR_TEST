@@ -108,20 +108,21 @@ class Strip {
 }
 
 const chartRpm = new Strip($('chartRpm'), [
-  { key: 'rpm', color: '#4da3ff', label: 'об/мин', floor: 1000, format: (v) => Math.round(v).toLocaleString('ru-RU') },
-  { key: 'thrust', color: '#37c978', label: 'г', floor: 100, format: (v) => Math.round(v).toLocaleString('ru-RU') },
-  { key: 'thr', color: '#8b98a9', label: 'газ', fixedMax: 100, format: (v) => v.toFixed(0) + '%' },
+  { key: 'rpm', color: '#4da3ff', label: 'rpm', floor: 1000, format: (v) => Math.round(v).toLocaleString('en-GB') },
+  { key: 'thrust', color: '#37c978', label: 'g', floor: 100, format: (v) => Math.round(v).toLocaleString('en-GB') },
+  { key: 'thr', color: '#8b98a9', label: 'throttle', fixedMax: 100, format: (v) => v.toFixed(0) + '%' },
 ]);
 
 const chartPower = new Strip($('chartPower'), [
-  { key: 'power', color: '#f6a935', label: 'Вт', floor: 50, format: (v) => v.toFixed(0) },
-  { key: 'current', color: '#e8433d', label: 'А', floor: 5, format: (v) => v.toFixed(2) },
+  { key: 'power', color: '#f6a935', label: 'W', floor: 50, format: (v) => v.toFixed(0) },
+  { key: 'current', color: '#e8433d', label: 'A', floor: 5, format: (v) => v.toFixed(2) },
 ]);
 
-// Наибольшие значения за прогон. Их два на каждую величину, потому что они
-// отвечают на разные вопросы: пик (мгновенное) — что должно выдержать железо,
-// рабочее (наибольшее среднее за секунду) — на чём мотор реально работает.
-// Одиночный выброс поднимает первое и почти не двигает второе.
+// The largest values of a run. There are two of them per quantity, because
+// they answer different questions: the peak (instantaneous) is what the
+// hardware has to survive, the working value (the largest one-second average)
+// is what the motor actually runs at. A single spike lifts the first and
+// barely moves the second.
 class Peaks {
   constructor() {
     this.reset();
@@ -132,7 +133,8 @@ class Peaks {
     this.work = new Map();
   }
 
-  // `value` — мгновенное значение, `average` — оно же, сглаженное за секунду.
+  // `value` is the instantaneous value, `average` is the same thing smoothed
+  // over a second.
   put(key, value, average) {
     if (typeof value === 'number' && Number.isFinite(value)) {
       this.peak.set(key, Math.max(this.peak.get(key) ?? value, value));
@@ -142,29 +144,29 @@ class Peaks {
     }
   }
 
-  // Строка вида «Обороты: пик 12 345, рабочие 11 980 об/мин», или прочерк,
-  // пока величина не измерялась ни разу.
+  // A line of the form "Rpm: peak 12,345, working 11,980 rpm", or a dash
+  // while the quantity has never been measured.
   line(key, name, unit, format) {
     const peak = this.peak.get(key);
     const work = this.work.get(key);
     if (peak === undefined) {
       return `${name}: —`;
     }
-    return `${name}: пик ${format(peak)}, рабочее ${format(work ?? peak)} ${unit}`;
+    return `${name}: peak ${format(peak)}, working ${format(work ?? peak)} ${unit}`;
   }
 }
 
 const peaks = new Peaks();
-const asInt = (v) => Math.round(v).toLocaleString('ru-RU');
+const asInt = (v) => Math.round(v).toLocaleString('en-GB');
 
 function renderPeaks() {
   $('peaksRpm').textContent = [
-    peaks.line('rpm', 'Обороты', 'об/мин', asInt),
-    peaks.line('thrust', 'Тяга', 'г', asInt),
+    peaks.line('rpm', 'Rpm', 'rpm', asInt),
+    peaks.line('thrust', 'Thrust', 'g', asInt),
   ].join(' · ');
   $('peaksPower').textContent = [
-    peaks.line('power', 'Мощность', 'Вт', asInt),
-    peaks.line('current', 'Ток', 'А', (v) => v.toFixed(2)),
+    peaks.line('power', 'Power', 'W', asInt),
+    peaks.line('current', 'Current', 'A', (v) => v.toFixed(2)),
   ].join(' · ');
 }
 
@@ -193,7 +195,7 @@ function connect() {
   };
   ws.onclose = () => {
     connected = false;
-    setBanner('Связь с сервером потеряна. Переподключение…');
+    setBanner('Lost the link to the server. Reconnecting…');
     setTimeout(connect, 1000);
   };
   ws.onerror = () => ws.close();
@@ -219,13 +221,13 @@ setInterval(() => {
 // Rendering
 // ---------------------------------------------------------------------------
 
-const STATE_NAMES = ['БЕЗОПАСНО', 'ГАЗ ПОДАН', 'АВАРИЯ'];
+const STATE_NAMES = ['SAFE', 'THROTTLE LIVE', 'FAULT'];
 const STATE_CLASSES = ['safe', 'armed', 'fault'];
 const FAULT_NAMES = [
-  [1, 'потеря связи с компьютером'],
-  [2, 'нажат аварийный стоп'],
-  [4, 'превышен ток'],
-  [8, 'перегрев ESC'],
+  [1, 'lost the link to the computer'],
+  [2, 'emergency stop pressed'],
+  [4, 'current exceeded'],
+  [8, 'ESC overheated'],
 ];
 
 function setBanner(text, kind) {
@@ -251,13 +253,13 @@ function applyState(message) {
   $('btnAcquirePort').classList.toggle('hidden', !released);
 
   if (released) {
-    $('linkInfo').textContent = `порт отпущен ещё на ${Math.ceil(link.heldOffFor)} с`;
+    $('linkInfo').textContent = `port stays released for another ${Math.ceil(link.heldOffFor)} s`;
   } else if (!link.connected) {
-    $('linkInfo').textContent = 'плата не найдена';
+    $('linkInfo').textContent = 'board not found';
   } else if (!link.identified) {
-    $('linkInfo').textContent = `${link.port} · устройство не отвечает как плата стенда`;
+    $('linkInfo').textContent = `${link.port} · the device does not answer as a stand board`;
   } else {
-    $('linkInfo').textContent = `${link.port} · ${board.version || '?'}${link.simulated ? ' · симуляция' : ''}`;
+    $('linkInfo').textContent = `${link.port} · ${board.version || '?'}${link.simulated ? ' · simulation' : ''}`;
   }
 
   // State badge
@@ -270,18 +272,18 @@ function applyState(message) {
   $('btnReset').classList.toggle('hidden', boardState !== 2);
   if (faults) {
     const names = FAULT_NAMES.filter(([bit]) => faults & bit).map(([, name]) => name);
-    setBanner('Авария: ' + names.join(', ') + '. Устраните причину и нажмите «Сброс аварии».', 'error');
+    setBanner('Fault: ' + names.join(', ') + '. Remove the cause and press “Clear fault”.', 'error');
   } else if (link.simulated) {
-    // Симуляцию нельзя опознать по самим цифрам: они выглядят правдоподобно.
-    // Спутать её с настоящим прогоном — значит записать выдуманный результат,
-    // поэтому предупреждение висит постоянно, а не строчкой в углу.
-    setBanner('Работает модель платы: все показания вымышленные, мотор ничем не управляется.');
+    // A simulation cannot be recognised from the numbers themselves: they look
+    // plausible. Mistaking it for a real run means recording an invented
+    // result, so the warning stays up instead of being a line in the corner.
+    setBanner('A model of the board is running: every reading is invented and nothing is driving the motor.');
   } else if (connected && !link.connected) {
-    setBanner('Плата не подключена — проверьте USB-кабель.');
+    setBanner('The board is not connected — check the USB cable.');
   } else if (connected && link.heldOffFor > 0) {
-    setBanner('Порт отдан другой программе. Нажмите «Забрать порт», когда закончите с конфигуратором.');
+    setBanner('The port has been given to another program. Press “Take port” when you are done with the configurator.');
   } else if (connected && !link.identified) {
-    setBanner(`На порту ${link.port} что-то есть, но это не прошивка стенда. Прошейте плату: ./scripts/flash.sh`);
+    setBanner(`There is something on port ${link.port}, but it is not the stand firmware. Flash the board: ./scripts/flash.sh`);
   } else if (connected) {
     setBanner('');
   }
@@ -306,9 +308,10 @@ function applyState(message) {
   markPresets(Number(slider.value));
   const applied = (telemetry.thr || [0])[0] / 10;
   $('throttleActual').textContent = applied.toFixed(1);
-  // Само число в кадре DShot. Если два разных положения газа дают одинаковые
-  // обороты, первый вопрос — уходят ли в регулятор разные числа; «факт» на это
-  // не отвечает, потому что его режет предел газа и он же показывает рампу.
+  // The number inside the DShot frame itself. If two different throttle
+  // positions give the same rpm, the first question is whether different
+  // numbers reach the ESC at all; "actual" does not answer that, because the
+  // throttle limit cuts it and it also shows the ramp.
   $('throttleRaw').textContent = String((telemetry.out || [0])[0]);
 
   // Tiles
@@ -325,19 +328,19 @@ function applyState(message) {
   const amps = ((haveBoard ? sense.ma : esc.ma) || 0) / 1000;
   const haveSense = escOk || haveBoard;
 
-  // Мощность считается из усреднённых слагаемых, иначе она дёргалась бы
-  // сильнее их обоих, перемножая два разных шума.
+  // Power is computed from the averaged factors, otherwise it would twitch
+  // more than either of them, multiplying two different noises together.
   const voltsAvg = smooth.put('volts', haveSense ? volts : null);
   const ampsAvg = smooth.put('amps', haveSense ? amps : null);
   const rpmAvg = smooth.put('rpm', escOk ? esc.rpm || 0 : null);
 
-  $('mRpm').textContent = rpmAvg === null ? '—' : Math.round(rpmAvg).toLocaleString('ru-RU');
+  $('mRpm').textContent = rpmAvg === null ? '—' : Math.round(rpmAvg).toLocaleString('en-GB');
   $('mCurrent').textContent = ampsAvg === null ? '—' : ampsAvg.toFixed(2);
   $('mVoltage').textContent = voltsAvg === null ? '—' : voltsAvg.toFixed(2);
   $('mPower').textContent = voltsAvg === null ? '—' : (voltsAvg * ampsAvg).toFixed(0);
   $('mTemp').textContent = escOk ? String(esc.tempC ?? '—') : '—';
-  // Расход считается от последнего сброса, а не от подачи питания: счётчик
-  // внутри регулятора не обнуляется ничем и между прогонами только растёт.
+  // Consumption is counted from the last reset, not from power-up: the counter
+  // inside the ESC is zeroed by nothing and only grows between runs.
   $('mMah').textContent =
     typeof telemetry.mahUsed === 'number' ? String(telemetry.mahUsed) : '—';
 
@@ -349,26 +352,26 @@ function applyState(message) {
   const haveLoad = !!telemetry.load;
   const thrustAvg = smooth.put('thrust', typeof thrust === 'number' ? thrust : null);
   $('mThrust').textContent =
-    thrustAvg === null ? '—' : Math.round(thrustAvg).toLocaleString('ru-RU');
+    thrustAvg === null ? '—' : Math.round(thrustAvg).toLocaleString('en-GB');
 
   $('senseSource').textContent = [
     haveBoard
-      ? 'ток и напряжение — с датчиков платы' +
-        (escOk ? ', обороты и температура — из телеметрии ESC' : ', телеметрия ESC не идёт')
+      ? 'current and voltage come from the board sensors' +
+        (escOk ? ', rpm and temperature from the ESC telemetry' : ', no ESC telemetry is arriving')
       : escOk
-        ? 'плата не сообщает свои датчики, всё берётся из телеметрии ESC'
-        : 'нет данных ни от ESC, ни с датчиков платы',
+        ? 'the board does not report its own sensors, everything is taken from the ESC telemetry'
+        : 'no data from the ESC and none from the board sensors',
     esc.foreign > 0
-      ? 'в линию телеметрии говорит больше одного регулятора — их пакеты ' +
-        `отброшены (${esc.foreign}); выключите телеметрию у незадействованных ` +
-        'в конфигураторе AM32'
+      ? 'more than one ESC is talking on the telemetry line — their packets ' +
+        `were dropped (${esc.foreign}); turn telemetry off on the unused ones ` +
+        'in the AM32 configurator'
       : null,
     !haveLoad
-      ? 'датчик тяги плата пока не передаёт'
+      ? 'the board does not send a thrust sensor yet'
       : calibration.loadCalibrated
-        ? 'тяга — с датчика стенда'
-        : 'датчик тяги не откалиброван, нажмите ⚙',
-    'в плитках среднее за секунду, на графиках и в файле — мгновенные значения',
+        ? 'thrust comes from the stand sensor'
+        : 'the thrust sensor is not calibrated, press ⚙',
+    'the tiles show the average over a second, the charts and the file hold instantaneous values',
   ].filter(Boolean).join(' · ');
 
   if (link.streaming) {
@@ -376,9 +379,9 @@ function applyState(message) {
     chartRpm.push(now, { rpm: esc.rpm || 0, thr: applied, thrust: thrust || 0 });
     chartPower.push(now, { power: volts * amps, current: amps });
 
-    // Каждый ARM — это новый прогон, и цифры прошлого к нему отношения не
-    // имеют. Накопление продолжается и после DISARM: на остановленном моторе
-    // максимумы уже не меняются, зато их можно спокойно прочитать.
+    // Every ARM is a new run, and the numbers of the previous one have nothing
+    // to do with it. Accumulation carries on after DISARM as well: on a
+    // stopped motor the maxima no longer change, but they can be read calmly.
     if (boardState === 1 && lastBoardState !== 1) {
       peaks.reset();
     }
@@ -419,7 +422,7 @@ function applyState(message) {
     const dshot = proto.startsWith('DSHOT');
     protoBadge.className = 'badge ' + (dshot ? 'ok' : 'warn');
     if (!dshot) {
-      setBanner(`Плата выдаёт ${proto} вместо DShot — регулятор такой сигнал не поймёт.`, 'error');
+      setBanner(`The board puts out ${proto} instead of DShot — the ESC will not understand such a signal.`, 'error');
     }
   }
 
@@ -427,10 +430,10 @@ function applyState(message) {
   const recorder = message.recorder || {};
   setActive('btnRecStart', recorder.active);
   $('recStatus').textContent = recorder.active
-    ? `пишется ${recorder.file} · строк: ${recorder.rows}`
+    ? `recording ${recorder.file} · rows: ${recorder.rows}`
     : recorder.file
-      ? `сохранено: ${recorder.file}`
-      : 'не пишется';
+      ? `saved: ${recorder.file}`
+      : 'not recording';
 
   // Autotest
   const autotest = message.autotest || {};
@@ -439,7 +442,7 @@ function applyState(message) {
   if (autotest.running) {
     const percent = (autotest.step / autotest.total) * 100;
     $('atBar').style.width = percent + '%';
-    $('atLabel').textContent = `ступень ${autotest.step}/${autotest.total} — ${(autotest.throttle / 10).toFixed(0)}%`;
+    $('atLabel').textContent = `step ${autotest.step}/${autotest.total} — ${(autotest.throttle / 10).toFixed(0)}%`;
   }
 
   // Log
@@ -448,7 +451,7 @@ function applyState(message) {
   for (const entry of (message.log || []).slice().reverse()) {
     const item = document.createElement('li');
     item.className = entry.level || 'info';
-    const time = new Date((entry.at || 0) * 1000).toLocaleTimeString('ru-RU');
+    const time = new Date((entry.at || 0) * 1000).toLocaleTimeString('en-GB');
     item.textContent = `${time}  ${entry.msg}`;
     list.appendChild(item);
   }
@@ -458,18 +461,19 @@ function applyState(message) {
   // without packets means data arrives but never forms a valid frame.
   if (escOk) {
     $('rawInfo').textContent =
-      `пакетов ESC: ${esc.pkts}, ошибок CRC: ${esc.crcErr}, байт: ${esc.bytes ?? '—'}`;
+      `ESC packets: ${esc.pkts}, CRC errors: ${esc.crcErr}, bytes: ${esc.bytes ?? '—'}`;
   } else if (esc.bytes > 2 || esc.edges > 10) {
-    // Что-то на линии есть, но кадр не складывается. Одиночные байты тут не в
-    // счёт: проба подтяжками сама качает вывод и тем рождает пару штук.
+    // Something is on the line, but no frame comes together. Single bytes do
+    // not count here: the pull-up probe drives the pin itself and so produces
+    // a couple of them.
     $('rawInfo').textContent =
-      `на линии есть сигнал (байт: ${esc.bytes}, фронтов: ${esc.edges}), но кадр ` +
-      `не собирается — не та скорость или не тот формат. Ошибок CRC: ${esc.crcErr}, ` +
-      `ошибок кадра: ${esc.frameErr}`;
+      `there is a signal on the line (bytes: ${esc.bytes}, edges: ${esc.edges}), but no ` +
+      `frame comes together — wrong rate or wrong format. CRC errors: ${esc.crcErr}, ` +
+      `frame errors: ${esc.frameErr}`;
   } else {
-    // Вердикт пробы показываем всегда, когда телеметрии нет: именно он
-    // отвечает на вопрос «а что вообще на том конце провода».
-    $('rawInfo').textContent = `телеметрии нет · ${padVerdict(esc)}`;
+    // The verdict of the probe is always shown when there is no telemetry: it
+    // is what answers the question of what is on the other end of the wire.
+    $('rawInfo').textContent = `no telemetry · ${padVerdict(esc)}`;
   }
 }
 
@@ -517,7 +521,7 @@ $('btnEstop').addEventListener('click', () => send({ type: 'estop' }));
 $('btnBeep').addEventListener('click', () => send({ type: 'dshot', motor: 1, command: 1, repeat: 10 }));
 
 $('btnReleasePort').addEventListener('click', () => {
-  if (confirm('Отдать USB-порт другой программе? Мотор будет остановлен.')) {
+  if (confirm('Give the USB port to another program? The motor will be stopped.')) {
     fetch('/api/port/release', { method: 'POST' });
   }
 });
@@ -543,11 +547,11 @@ for (const [id, key, factor] of SETTING_INPUTS) {
 // calibration, so the operator never sees an old error as a fresh answer.
 let calOpenedAt = 0;
 
-// Цифры в плитках скачут не от шума в проводке, а от разрешения АЦП: один его
-// отсчёт на токе — это около 75 мА, так что последняя цифра дёргается сама по
-// себе и прочитать её на глаз невозможно. Усреднение за секунду делает число
-// читаемым и ничего не прячет: графики и запись в файл берут сырые значения,
-// поэтому и переходный процесс, и выброс останутся видны там.
+// The numbers in the tiles jump not from noise in the wiring but from the
+// resolution of the ADC: one of its steps on current is about 75 mA, so the
+// last digit twitches on its own and cannot be read by eye. Averaging over a
+// second makes the number readable and hides nothing: the charts and the file
+// take the raw values, so a transient and a spike both stay visible there.
 const SMOOTH_WINDOW_MS = 1000;
 
 class Smoothed {
@@ -556,8 +560,9 @@ class Smoothed {
     this.series = new Map();
   }
 
-  // Кладёт значение и возвращает среднее за окно. null означает «показывать
-  // нечего»: источник пропал, и накопленное среднее было бы враньём.
+  // Takes a value and returns the average over the window. null means there is
+  // nothing to show: the source is gone, and the average accumulated so far
+  // would be a lie.
   put(key, value) {
     if (typeof value !== 'number' || !Number.isFinite(value)) {
       this.series.delete(key);
@@ -586,38 +591,38 @@ class Smoothed {
 
 const smooth = new Smoothed();
 
-// Плата при загрузке читает вывод телеметрии под внутренней подтяжкой вверх,
-// потом вниз. Слабая подтяжка (около 40 кОм) проигрывает всему, что линию
-// действительно ведёт, поэтому пара уровней говорит, что на другом конце.
+// At startup the board reads the telemetry pin under an internal pull-up, then
+// under a pull-down. A weak pull (about 40 kΩ) loses to anything that really
+// drives the line, so the pair of levels tells what is on the other end.
 function padVerdict(esc) {
-  if (esc.padUp === undefined) return 'плата не сообщает пробу вывода';
+  if (esc.padUp === undefined) return 'the board does not report the pin probe';
   if (esc.padUp === 1 && esc.padDown === 0) {
-    return 'вывод TEL ни к чему не подключён: он просто идёт за внутренней ' +
-      'подтяжкой. Провод телеметрии не доходит до полётника';
+    return 'the TEL pin is connected to nothing: it merely follows the ' +
+      'internal pull. The telemetry wire does not reach the flight controller';
   }
   if (esc.padUp === 0 && esc.padDown === 0) {
-    return 'вывод TEL прижат к нулю чем-то внешним — обычно это неисправный ' +
-      'регулятор либо замыкание в жгуте';
+    return 'the TEL pin is held at zero by something external — usually a ' +
+      'faulty ESC or a short in the harness';
   }
   if (esc.padUp === 1 && esc.padDown === 1) {
-    return 'вывод TEL удерживается высоким, то есть передатчик подключён и ' +
-      'молчит — телеметрия в регуляторе выключена';
+    return 'the TEL pin is held high, which means the transmitter is ' +
+      'connected and silent — telemetry is off in the ESC';
   }
-  return `проба вывода: вверх ${esc.padUp}, вниз ${esc.padDown}`;
+  return `pin probe: up ${esc.padUp}, down ${esc.padDown}`;
 }
 
-// Ноль ампер и отсутствие датчика выглядят на экране одинаково, и разница
-// между ними решает, что чинить. Различить их можно только по сырому сигналу
-// с вывода АЦП вместе с тем, крутится ли сейчас мотор.
+// Zero amps and a missing sensor look the same on screen, and the difference
+// between them decides what to repair. They can only be told apart from the
+// raw signal on the ADC pin together with whether the motor is spinning.
 function currentSourceNote(telemetry) {
   const esc = telemetry.esc || {};
   const sense = telemetry.board || {};
   const spinning = telemetry.state === 1 && (telemetry.thr || [0])[0] > 0;
 
-  if (sense.iPinMv === undefined) return 'плата не сообщает сигнал датчика тока';
-  if (sense.iPinMv > 0) return 'датчик тока платы выдаёт сигнал, калибровка возможна';
-  if (!spinning) return 'мотор стоит, поэтому 0 мВ — это норма. Дайте газ и посмотрите сюда снова';
-  return 'мотор крутится, а на входе тока 0 мВ — сигнала нет, калибровка тут не поможет';
+  if (sense.iPinMv === undefined) return 'the board does not report the current sensor signal';
+  if (sense.iPinMv > 0) return 'the board current sensor puts out a signal, calibration is possible';
+  if (!spinning) return 'the motor is stopped, so 0 mV is normal. Give it throttle and look here again';
+  return 'the motor is spinning and the current input reads 0 mV — there is no signal, calibration will not help here';
 }
 
 function updateCalibrationDialog(telemetry, settings, calibration, log) {
@@ -625,10 +630,11 @@ function updateCalibrationDialog(telemetry, settings, calibration, log) {
 
   const sense = telemetry.board || {};
   const load = telemetry.load || {};
-  // Здесь усреднение нужнее всего: по этим числам оператор решает, совпало ли
-  // показание с внешним прибором, а по дёргающейся последней цифре решить
-  // нельзя. Сама калибровка считается на сервере по данным платы и от того,
-  // что нарисовано тут, не зависит.
+  // Averaging matters most here: these are the numbers the operator uses to
+  // decide whether the reading matches the external meter, and a twitching
+  // last digit makes that impossible. The calibration itself is computed on
+  // the server from the board's data and does not depend on what is drawn
+  // here.
   const nowV = smooth.put('calV', sense.mv === undefined ? null : sense.mv / 1000);
   const nowA = smooth.put('calA', sense.ma === undefined ? null : sense.ma / 1000);
   const nowG = smooth.put('calG', typeof telemetry.thrustG === 'number' ? telemetry.thrustG : null);
@@ -637,52 +643,54 @@ function updateCalibrationDialog(telemetry, settings, calibration, log) {
   $('calNowCurrent').textContent = nowA === null ? '—' : nowA.toFixed(2);
   $('calNowThrust').textContent = nowG === null ? '—' : Math.round(nowG);
 
-  // Сырые милливольты на выводах АЦП. Без них нельзя отличить «тока нет» от
-  // «датчик ничего не выдаёт»: пересчитанный ток в обоих случаях ноль.
-  // Дробная цифра здесь не лишняя — шаг АЦП 0.8 мВ, и целые милливольты
-  // после усреднения выглядели бы так же дёргано, как до него.
+  // The raw millivolts on the ADC pins. Without them "there is no current"
+  // cannot be told from "the sensor puts out nothing": the converted current
+  // is zero in both cases. The fractional digit here is not redundant — the
+  // ADC step is 0.8 mV, and whole millivolts would look just as twitchy after
+  // averaging as before it.
   const pinV = smooth.put('calPinV', sense.vPinMv ?? null);
   const pinA = smooth.put('calPinA', sense.iPinMv ?? null);
 
   $('calPinVoltage').textContent = pinV === null ? '—' : pinV.toFixed(1);
   $('calPinCurrent').textContent = pinA === null ? '—' : pinA.toFixed(1);
-  // Масштабы в милли-единицах ничего не говорят глазу. В вольтах и амперах
-  // сразу видно, если калибровка увела коэффициент далеко от паспортного —
-  // у ArduPilot для этой платы 8.3 В/В и 92.6 А/В.
+  // Scales in milli-units tell the eye nothing. In volts and amps it is
+  // immediately visible if a calibration has taken the coefficient far from
+  // the datasheet one — ArduPilot has 8.3 V/V and 92.6 A/V for this board.
   $('calScaleVoltage').textContent =
-    settings.vbatScaleM === undefined ? '—' : (settings.vbatScaleM / 1000).toFixed(2) + ' В/В';
+    settings.vbatScaleM === undefined ? '—' : (settings.vbatScaleM / 1000).toFixed(2) + ' V/V';
   $('calScaleCurrent').textContent =
-    settings.currentScaleM === undefined ? '—' : (settings.currentScaleM / 1000).toFixed(1) + ' А/В';
+    settings.currentScaleM === undefined ? '—' : (settings.currentScaleM / 1000).toFixed(1) + ' A/V';
   $('calZeroCurrent').textContent = settings.currentOffsetMv ?? '—';
   $('calCurrentSource').textContent = currentSourceNote(telemetry);
 
-  // Плата сама сообщает, совпадает ли то, что в её памяти, с тем, чем она
-  // сейчас считает. Пока не совпало, калибровка живёт до первого выключения.
+  // The board itself reports whether what is in its memory matches what it is
+  // currently computing with. Until they match, a calibration lives only until
+  // the first power-down.
   const saved = settings.saved;
   const savedLine = $('calSaved');
   savedLine.textContent =
     saved === undefined
-      ? 'плата не сообщает, сохранены ли настройки'
+      ? 'the board does not report whether the settings are saved'
       : saved
-        ? 'настройки записаны в память платы'
-        : 'настройки не записаны в память платы — при выключении питания потеряются';
+        ? 'the settings are written to the board memory'
+        : 'the settings are not written to the board memory — they will be lost on power-down';
   savedLine.classList.toggle('ok', saved === true);
   savedLine.classList.toggle('warn', saved === false);
   $('calRawThrust').textContent = load.raw ?? '—';
   $('calScaleThrust').textContent = calibration.loadScale
     ? calibration.loadScale.toFixed(5)
-    : 'не задан';
+    : 'not set';
 
   const answers = log.filter(
-    (entry) => (entry.at || 0) * 1000 > calOpenedAt && /калибров|ноль |тар/i.test(entry.msg || '')
+    (entry) => (entry.at || 0) * 1000 > calOpenedAt && /calibrat|current zero|thrust zero/i.test(entry.msg || '')
   );
   const last = answers[answers.length - 1];
-  $('calStatus').textContent = last ? last.msg : 'изменения применяются сразу после нажатия';
+  $('calStatus').textContent = last ? last.msg : 'changes apply as soon as the button is pressed';
 }
 
 $('btnCalibrate').addEventListener('click', () => {
   calOpenedAt = Date.now();
-  $('calStatus').textContent = 'изменения применяются сразу после нажатия';
+  $('calStatus').textContent = 'changes apply as soon as the button is pressed';
   $('calDialog').showModal();
 });
 $('calClose').addEventListener('click', () => $('calDialog').close());
@@ -694,7 +702,7 @@ for (const button of document.querySelectorAll('[data-cal]')) {
     if (inputId) {
       const measured = Number($(inputId).value);
       if (!Number.isFinite(measured) || measured <= 0) {
-        $('calStatus').textContent = 'впишите измеренное значение больше нуля';
+        $('calStatus').textContent = 'enter a measured value greater than zero';
         return;
       }
       payload.value = measured;
@@ -711,7 +719,7 @@ $('btnRecStop').addEventListener('click', () => {
 
 $('btnAutotest').addEventListener('click', () => {
   if (boardState !== 1) {
-    setBanner('Сначала нажмите ARM.');
+    setBanner('Press ARM first.');
     return;
   }
   const hold = Number($('atHold').value) || 3;
@@ -738,7 +746,7 @@ async function refreshLogs() {
       link.textContent = file.name;
       link.download = file.name;
       item.appendChild(link);
-      item.appendChild(document.createTextNode(`  ${(file.bytes / 1024).toFixed(0)} КБ`));
+      item.appendChild(document.createTextNode(`  ${(file.bytes / 1024).toFixed(0)} kB`));
       list.appendChild(item);
     }
   } catch (error) {

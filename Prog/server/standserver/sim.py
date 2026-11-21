@@ -40,13 +40,13 @@ TICK_S = 0.01
 LOAD_ZERO_COUNTS = 128000
 LOAD_COUNTS_PER_G = 42.0
 
-# Как на самом деле устроены датчики платы в этой модели. Значения нарочно не
-# совпадают с настройками по умолчанию: из коробки плата немного врёт, и
-# калибровка по внешнему прибору видимо это исправляет — иначе проверить её
-# без железа было бы нечем.
-SENSE_VBAT_DIVIDER = 8.05     # вольт на вольт делителя
-SENSE_CURRENT_A_PER_V = 85.0  # ампер на вольт датчика тока
-SENSE_CURRENT_ZERO_MV = 40.0  # что датчик выдаёт при нулевом токе
+# How the board's sensors really behave in this model. The values deliberately
+# disagree with the default settings: out of the box the board lies a little,
+# and calibrating against an external instrument visibly corrects it -
+# otherwise there would be no way to check the calibration without hardware.
+SENSE_VBAT_DIVIDER = 8.05     # volts per volt of the divider
+SENSE_CURRENT_A_PER_V = 85.0  # amps per volt of the current sensor
+SENSE_CURRENT_ZERO_MV = 40.0  # what the sensor reads at zero current
 
 
 class SimulatedLink:
@@ -61,7 +61,7 @@ class SimulatedLink:
         self.hello = {
             "hello": "thrust-stand-fc",
             "version": "1.0.0-sim",
-            "board": "OrqaF405Pro",
+            "board": "F405",
             "motors": [1, 3],
             "protocols": PROTOCOLS,
             "controlHz": 2000,
@@ -76,18 +76,18 @@ class SimulatedLink:
             "currentOffsetMv": 0,
             "currentLimitMa": 0,
             "tempLimitC": 0,
-            # Настоящая плата сообщает, совпадает ли то, что в оперативной
-            # памяти, с тем, что записано во флеш. Только это и отвечает на
-            # вопрос, переживёт ли калибровка выключение питания.
+            # The real board reports whether what is in RAM matches what is
+            # written to flash. That is the only thing that answers the
+            # question of whether a calibration will survive a power cycle.
             "saved": True,
         }
         self._save_pending = False
 
         self._state = STATE_SAFE
         self._faults = 0
-        # То же значение, с которым поднимается настоящая плата
-        # (firmware/src/motor_out.cpp, gProtocol). Расхождение здесь означало
-        # бы, что симуляция показывает протокол, которого на стенде не бывает.
+        # The same value the real board comes up with
+        # (firmware/src/motor_out.cpp, gProtocol). A difference here would mean
+        # the model shows a protocol that never occurs on the stand.
         self._protocol = "DSHOT300"
         self._target = [0.0, 0.0]
         self._applied = [0.0, 0.0]
@@ -183,13 +183,15 @@ class SimulatedLink:
             # because that freezes the processor for about a second. The model
             # reproduces the refusal rather than the delay.
             if self.settings["saved"]:
-                self.events.append({"level": "info", "msg": "настройки в плате уже такие же"})
+                self.events.append(
+                    {"level": "info", "msg": "the board already holds these settings"}
+                )
             elif self._state == STATE_ARMED:
                 self._save_pending = True
                 self.events.append(
                     {
                         "level": "warn",
-                        "msg": "настройки сохранятся в плату, как только мотор остановится",
+                        "msg": "the settings will be saved to the board as soon as the motor stops",
                     }
                 )
             else:
@@ -198,7 +200,7 @@ class SimulatedLink:
     def _commit_settings(self) -> None:
         self._save_pending = False
         self.settings["saved"] = True
-        self.events.append({"level": "info", "msg": "настройки сохранены в плату"})
+        self.events.append({"level": "info", "msg": "settings saved to the board"})
 
     def _cut(self) -> None:
         self._target = [0.0, 0.0]
@@ -253,10 +255,10 @@ class SimulatedLink:
         if self._save_pending and self._state != STATE_ARMED and not any(self._applied):
             self._commit_settings()
 
-        # Выводы АЦП, как их видит плата, и уже из них — то, что она покажет.
-        # Порядок именно такой, а не наоборот: прошивка считает так же
-        # (firmware/src/main.cpp, sampleAnalog), поэтому смена масштаба здесь
-        # меняет показания ровно так же, как на железе.
+        # The ADC pins as the board sees them, and only then what it will
+        # report. The order is this way round and not the other: the firmware
+        # computes the same way (firmware/src/main.cpp, sampleAnalog), so
+        # changing a scale here changes the readings exactly as on hardware.
         v_pin_mv = pack_v * 1000.0 / SENSE_VBAT_DIVIDER
         i_pin_mv = SENSE_CURRENT_ZERO_MV + current_a * 1000.0 / SENSE_CURRENT_A_PER_V
         board_mv = v_pin_mv * self.settings["vbatScaleM"] / 1000.0

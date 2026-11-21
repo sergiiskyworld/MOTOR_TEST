@@ -87,7 +87,7 @@ class Calibration:
     def set_load_zero(self, load: Optional[Dict[str, Any]]) -> float:
         raw = (load or {}).get("raw")
         if raw is None:
-            raise CalibrationError("плата не сообщает показания датчика тяги")
+            raise CalibrationError("the board is not reporting a thrust sensor reading")
         self.load_zero = float(raw)
         self.save()
         return self.load_zero
@@ -95,14 +95,14 @@ class Calibration:
     def set_load_measured(self, load: Optional[Dict[str, Any]], grams: float) -> float:
         raw = (load or {}).get("raw")
         if raw is None:
-            raise CalibrationError("плата не сообщает показания датчика тяги")
+            raise CalibrationError("the board is not reporting a thrust sensor reading")
         if grams <= 0:
-            raise CalibrationError("вес должен быть больше нуля")
+            raise CalibrationError("the weight must be greater than zero")
         span = float(raw) - self.load_zero
         if abs(span) < 1:
             raise CalibrationError(
-                "показания датчика не изменились относительно нуля — "
-                "сначала обнулите его без груза"
+                "the sensor reading has not moved away from the zero: "
+                "zero it first with no load on it"
             )
         self.load_scale = grams / span
         self.save()
@@ -134,11 +134,11 @@ class Calibration:
 
 def voltage_scale(pin_mv: float, measured_v: float) -> int:
     if measured_v <= 0:
-        raise CalibrationError("измеренное напряжение должно быть больше нуля")
+        raise CalibrationError("the measured voltage must be greater than zero")
     if pin_mv < MIN_SENSE_MV:
         raise CalibrationError(
-            f"на делителе напряжения всего {pin_mv:.1f} мВ — подключите "
-            "аккумулятор и повторите"
+            f"there is only {pin_mv:.1f} mV on the voltage divider - connect "
+            "a battery and try again"
         )
     return max(1, round(measured_v * 1_000_000.0 / pin_mv))
 
@@ -149,20 +149,21 @@ def voltage_scale(pin_mv: float, measured_v: float) -> int:
 
 
 def current_scale(pin_mv: float, offset_mv: float, measured_a: float) -> int:
-    """Масштаб тока по одному показанию образцового амперметра.
+    """Current scale from a single reading of a reference ammeter.
 
-    То же, что делает ArduPilot при калибровке `BATT_AMP_PERVLT`: берётся
-    напряжение на выводе за вычетом нуля канала и приводится к току, который
-    показал прибор. Считается от сырых милливольт, а не от того, что выводит
-    плата, иначе новый масштаб унаследовал бы ошибку старого.
+    The same thing ArduPilot does when calibrating `BATT_AMP_PERVLT`: the pin
+    voltage less the channel zero is taken and scaled to the current the
+    instrument showed. It is computed from the raw millivolts rather than from
+    what the board reports, because otherwise the new scale would inherit the
+    error of the old one.
     """
     if measured_a <= 0:
-        raise CalibrationError("ток по прибору должен быть больше нуля")
+        raise CalibrationError("the current on the instrument must be greater than zero")
     span = pin_mv - offset_mv
     if span < MIN_SENSE_MV:
         raise CalibrationError(
-            f"сигнал с датчика всего {span:.1f} мВ над нулём — дайте мотору "
-            "рабочий ток и повторите"
+            f"the sensor signal is only {span:.1f} mV above zero - give the "
+            "motor a working current and try again"
         )
     return max(1, round(measured_a * 1_000_000.0 / span))
 

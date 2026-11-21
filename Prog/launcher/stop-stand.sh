@@ -1,11 +1,11 @@
 #!/bin/bash
-# Останавливает сервер стенда и освобождает USB-порт.
+# Stops the stand server and frees the USB port.
 #
-# Кликать нужно по «STOP-MAC.command» в этой же папке.
+# The file to click is "STOP-MAC.command" in this same folder.
 #
-# Обычно это не нужно: порт занят только пока открыто окно браузера.
-# Пригодится, если сервер надо убрать совсем — например перед долгой работой
-# в конфигураторе ArduPilot.
+# Usually this is not needed: the port is held only while the browser window
+# is open. It helps when the server has to be taken down completely — before
+# a long session in the ArduPilot configurator, for example.
 
 set -u
 
@@ -13,37 +13,37 @@ PORT="${STAND_PORT:-8000}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROG="$(dirname "$HERE")"
 
-echo "==> Останавливаю сервер стенда"
+echo "==> Stopping the stand server"
 
-# Ищем по слушающему TCP-порту, а не по пути к run.py: сервер запускается из
-# своей папки, поэтому в его командной строке путь не встречается вообще, и
-# поиск по пути не находил ничего.
+# We look for the listening TCP port rather than for the path to run.py: the
+# server is started from its own folder, so the path does not appear in its
+# command line at all, and searching by path found nothing.
 killed=0
 for pid in $(lsof -nP -iTCP:"$PORT" -sTCP:LISTEN -t 2>/dev/null); do
-    # Порт мог занять и что-то чужое, поэтому убиваем только свой сервер.
+    # Something else could have taken the port, so we kill only our server.
     if ps -p "$pid" -o command= 2>/dev/null | grep -q "run\.py"; then
         kill "$pid" 2>/dev/null && killed=$((killed + 1))
     else
-        echo "    порт $PORT занят чужим процессом ($pid), не трогаю"
+        echo "    port $PORT is taken by another process ($pid), leaving it alone"
     fi
 done
 
 sleep 1
 if curl -fsS -m 2 -o /dev/null "http://127.0.0.1:${PORT}/" 2>/dev/null; then
-    echo "!! Сервер всё ещё отвечает на порту $PORT"
-    echo "   Кто занял порт:"
+    echo "!! The server still answers on port $PORT"
+    echo "   Who is holding the port:"
     lsof -nP -iTCP:"$PORT" -sTCP:LISTEN 2>/dev/null || true
 elif [ "$killed" -gt 0 ]; then
-    echo "    сервер остановлен (процессов: $killed)"
+    echo "    server stopped (processes: $killed)"
 else
-    echo "    сервер и так не работал"
+    echo "    the server was not running anyway"
 fi
 
 echo
-echo "Порт USB свободен. Проверить, что его никто не держит:"
+echo "The USB port is free. To check that nobody is holding it:"
 echo "    lsof /dev/cu.*"
 echo
-echo "Файл сервера: $PROG/server/run.py"
+echo "Server file: $PROG/server/run.py"
 echo
-echo "Нажмите Enter, чтобы закрыть."
+echo "Press Enter to close this window."
 read -r _

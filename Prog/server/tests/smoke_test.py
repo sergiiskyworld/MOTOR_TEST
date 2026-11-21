@@ -54,7 +54,10 @@ def main() -> int:
 
     with TestClient(app) as client:
         response = client.get("/")
-        check("index page served", response.status_code == 200 and "Стенд тяги" in response.text)
+        # Matched on an element id rather than on visible text, so that the
+        # check keeps working whatever the interface is worded like.
+        check("index page served",
+              response.status_code == 200 and 'id="stateBadge"' in response.text)
 
         with client.websocket_connect("/ws") as ws:
             telemetry, _ = wait_for(ws, lambda t, m: t.get("state") is not None)
@@ -127,9 +130,10 @@ def main() -> int:
             check("csv carries thrust alongside the raw counts",
                   "thrust_g" in header and "thrust_raw" in header, header)
 
-            # Расход отсчитывается от сброса: счётчик внутри регулятора считает
-            # от подачи питания и обнулить его нечем, так что без отметки
-            # плитка показывала бы ампер-часы прошлых прогонов.
+            # Consumption is counted from the reset: the counter inside the
+            # ESC counts from the moment power was applied and there is
+            # nothing to zero it with, so without a mark the tile would show
+            # the milliamp-hours of earlier runs.
             _, message = wait_for(ws, lambda t, m: (t.get("esc") or {}).get("mah", 0) > 0)
             ws.send_text(json.dumps({"type": "mahReset"}))
             _, message = wait_for(
@@ -185,23 +189,24 @@ def main() -> int:
                   (message.get("telemetry") or {}).get("board", {}).get("ma") == 0,
                   str((message.get("telemetry") or {}).get("board")))
 
-            # Масштаб — это отношение сигнала к показанию прибора, и на
-            # стоящем моторе сигнала нет. Без отказа здесь собственный ноль
-            # датчика превратился бы в правдоподобный с виду коэффициент.
+            # A scale is the ratio of the signal to the instrument's reading,
+            # and with the motor stopped there is no signal. Without a refusal
+            # here the sensor's own zero would turn into a coefficient that
+            # looks plausible.
             before = link.settings["currentScaleM"]
             ws.send_text(json.dumps({"type": "calibrate", "target": "current", "value": 12.0}))
             _, message = wait_for(
                 ws,
-                lambda t, m: any("мВ над нулём" in e.get("msg", "") for e in (m.get("log") or [])),
+                lambda t, m: any("mV above zero" in e.get("msg", "") for e in (m.get("log") or [])),
                 timeout=3.0,
             )
             check("calibrating current at a standstill is refused, and says why",
                   link.settings["currentScaleM"] == before,
                   str(link.settings["currentScaleM"]))
 
-            # Под нагрузкой: сообщаем одно показание образцового амперметра,
-            # как это сделал бы человек с клещами, и убеждаемся, что плата
-            # после этого показывает именно его.
+            # Under load: report a single reading of a reference ammeter, the
+            # way a person with a clamp meter would, and make sure the board
+            # then shows exactly that.
             ws.send_text(json.dumps({"type": "throttle", "motor": 1, "value": 400}))
             _, message = wait_for(ws, lambda t, m: t["thr"][0] == 400 and (t.get("esc") or {})["ma"] > 5000)
             true_ma = message["telemetry"]["esc"]["ma"]
@@ -229,8 +234,8 @@ def main() -> int:
             check("the calibration is written to the board once it stops",
                   link.settings["saved"] is True, str(link.settings.get("saved")))
 
-            # Ноль, снятый под нагрузкой, унёс бы эту нагрузку в каждое
-            # последующее показание.
+            # A zero taken under load would carry that load into every
+            # reading after it.
             ws.send_text(json.dumps({"type": "arm"}))
             wait_for(ws, lambda t, m: t.get("state") == 1)
             before = link.settings["currentOffsetMv"]
@@ -239,7 +244,7 @@ def main() -> int:
             ws.send_text(json.dumps({"type": "calibrate", "target": "currentZero"}))
             wait_for(
                 ws,
-                lambda t, m: any("только на неподвижном" in e["msg"] for e in m.get("log", [])),
+                lambda t, m: any("with the motor stopped" in e["msg"] for e in m.get("log", [])),
             )
             check("zeroing is refused while the motor is running",
                   link.settings["currentOffsetMv"] == before,

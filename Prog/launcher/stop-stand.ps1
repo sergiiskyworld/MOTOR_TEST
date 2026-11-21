@@ -1,9 +1,9 @@
-﻿# Остановка сервера стенда на Windows.
+﻿# Stopping the stand server on Windows.
 #
-# Кликать нужно по «STOP-WINDOWS.bat» в этой же папке.
+# The file to click is "STOP-WINDOWS.bat" in this same folder.
 #
-# Обычно это не нужно: USB-порт занят только пока открыто окно браузера.
-# Пригодится, если сервер надо убрать совсем.
+# Usually this is not needed: the USB port is held only while the browser
+# window is open. It helps when the server has to be taken down completely.
 
 $ErrorActionPreference = 'Continue'
 
@@ -11,9 +11,10 @@ $Port = if ($env:STAND_PORT) { $env:STAND_PORT } else { '8000' }
 $Prog = Split-Path -Parent $PSScriptRoot
 $RunPy = Join-Path $Prog 'server\run.py'
 
-Write-Host '==> Останавливаю сервер стенда'
+Write-Host '==> Stopping the stand server'
 
-# Ищем по командной строке процесса: у сервера нет своего имени, это python.
+# We look at the process command line: the server has no name of its own, it
+# is python.
 $killed = 0
 $processes = Get-CimInstance Win32_Process -Filter "Name = 'python.exe' OR Name = 'pythonw.exe'" -ErrorAction SilentlyContinue
 foreach ($process in $processes) {
@@ -28,25 +29,25 @@ Start-Sleep -Seconds 1
 
 $alive = $false
 try {
-    # -ErrorAction Stop: иначе отказ соединения не дошёл бы до catch.
+    # -ErrorAction Stop: otherwise a refused connection would never reach catch.
     Invoke-WebRequest -Uri "http://127.0.0.1:$Port/" -TimeoutSec 2 `
         -UseBasicParsing -ErrorAction Stop | Out-Null
     $alive = $true
 } catch { }
 
 if ($alive) {
-    Write-Host "!! Сервер всё ещё отвечает на порту $Port" -ForegroundColor Red
-    Write-Host '   Кто занял порт:'
+    Write-Host "!! The server still answers on port $Port" -ForegroundColor Red
+    Write-Host '   Who is holding the port:'
     netstat -ano | Select-String ":$Port\s.*LISTENING"
 } elseif ($killed -gt 0) {
-    Write-Host "    сервер остановлен (процессов: $killed)"
+    Write-Host "    server stopped (processes: $killed)"
 } else {
-    Write-Host '    сервер и так не работал'
+    Write-Host '    the server was not running anyway'
 }
 
 Write-Host ''
-Write-Host 'COM-порт платы свободен. Проверить можно в Диспетчере устройств.'
-Write-Host "Файл сервера: $RunPy"
+Write-Host 'The COM port of the board is free. You can check this in Device Manager.'
+Write-Host "Server file: $RunPy"
 Write-Host ''
-Write-Host 'Нажмите Enter, чтобы закрыть.'
+Write-Host 'Press Enter to close this window.'
 [void][System.Console]::ReadLine()

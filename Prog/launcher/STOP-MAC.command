@@ -1,3 +1,3 @@
 #!/bin/bash
-# Останавливает сервер стенда на macOS — двойной клик по этому файлу.
+# Stops the stand server on macOS — double-click this file.
 exec "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/stop-stand.sh"

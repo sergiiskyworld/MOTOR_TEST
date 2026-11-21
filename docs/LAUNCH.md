@@ -1,91 +1,99 @@
-# Запуск приложения
+# Starting the application
 
-Всё, что нужно браузерному приложению, лежит в папке `Prog`: сервер,
-окружение Python и файлы запуска. Снаружи вынесены только прошивка
-(`firmware/`), скрипт заливки (`scripts/flash.sh`) и документация (`docs/`).
+Everything the browser application needs lives in the `Prog` folder: the
+server, the Python environment and the launch files. Only the firmware
+(`firmware/`), the flashing script (`scripts/flash.sh`) and the documentation
+(`docs/`) are kept outside it.
 
 ```
 Prog/
-  START-MAC.command       ← клик здесь на macOS
-  START-WINDOWS.bat       ← клик здесь на Windows
-  launcher/               механика запуска и остановки
-    start-stand.sh          движок для macOS и Linux
-    start-stand.ps1         движок для Windows
-    stop-stand.sh           остановка сервера, macOS/Linux
-    stop-stand.ps1          остановка сервера, Windows
-    STOP-MAC.command        остановить сервер на macOS
-    STOP-WINDOWS.bat        остановить сервер на Windows
-  server/                 код сервера и веб-интерфейса
-  .venv, .venv-win        окружения Python, создаются сами (скрыты в Finder)
-  .browser-profile        профиль браузера для окна стенда, создаётся сам
+  START-MAC.command       ← click here on macOS
+  START-WINDOWS.bat       ← click here on Windows
+  launcher/               the machinery of starting and stopping
+    start-stand.sh          the engine for macOS and Linux
+    start-stand.ps1         the engine for Windows
+    stop-stand.sh           stops the server, macOS/Linux
+    stop-stand.ps1          stops the server, Windows
+    STOP-MAC.command        stop the server on macOS
+    STOP-WINDOWS.bat        stop the server on Windows
+  server/                 the server and web interface code
+  .venv, .venv-win        Python environments, made on their own (hidden)
+  .browser-profile        browser profile for the stand window, made on its own
 ```
 
-## Почему два файла запуска, а не один
+## Why two launch files and not one
 
-Один файл, кликабельный в обеих системах, сделать нельзя: и macOS, и Windows
-выбирают программу для открытия по расширению. macOS запускает как скрипт
-только `.command` (и не знает про `.bat`), Windows — только `.bat` или `.cmd`
-(и не знает про `.command`). Расширение у файла одно, поэтому минимум — два
-файла. Имена сделаны одинаковыми по смыслу, чтобы не приходилось выбирать:
-на каждой системе работает тот, где написано её название.
+A single file clickable on both systems cannot be made: macOS and Windows both
+choose the program to open a file by its extension. macOS runs only `.command`
+as a script (and knows nothing about `.bat`), Windows only `.bat` or `.cmd`
+(and knows nothing about `.command`). A file has one extension, so two files
+is the minimum. The names were made to say the same thing so that there is
+nothing to choose between: on each system the one with that system's name in
+it is the one that works.
 
-Вариант «один `.html`» не годится: страница из файла не может поднять сервер,
-а без сервера показывать нечего.
+The "one `.html`" option will not do: a page opened from a file cannot bring
+up the server, and without the server there is nothing to show.
 
-## Что происходит при запуске
+## What happens at startup
 
-1. Проверяется, отвечает ли сервер на `http://127.0.0.1:8000/`.
-2. При первом запуске создаётся окружение Python и ставятся зависимости из
-   `server/requirements.txt` (нужен интернет, один раз).
-   На macOS окружение зовётся `.venv`, на Windows — `.venv-win`: папку проекта
-   можно носить между системами, а окружения Python у них несовместимы.
-3. Если сервер не отвечал — поднимается, отвязанный от окна запуска. Закрытие
-   Терминала или консоли его больше не уносит.
-4. Открывается **отдельное окно браузера на весь экран**, без вкладок и
-   адресной строки.
+1. The script checks whether the server answers at `http://127.0.0.1:8000/`.
+2. On the first run the Python environment is created and the dependencies
+   from `server/requirements.txt` are installed (needs the internet, once).
+   On macOS the environment is called `.venv`, on Windows `.venv-win`: the
+   project folder can be carried between the systems, while their Python
+   environments are not compatible with each other.
+3. If the server was not answering, it is brought up, detached from the window
+   it was launched from. Closing the Terminal or the console no longer takes
+   it down with them.
+4. A **separate full-screen browser window** opens, with no tabs and no
+   address bar.
 
-Повторный клик безопасен: второй сервер не поднимется, просто откроется ещё
-одно окно.
+Clicking a second time is safe: a second server will not come up, one more
+window will open.
 
-### Отдельное окно на весь экран, а не вкладка
+### A separate full-screen window, not a tab
 
-Стенд открывается своим окном намеренно: случайно закрытая вкладка здесь
-означает остановленный мотор, а среди десятка чужих вкладок её легко потерять.
+The stand opens in a window of its own deliberately: a tab closed by accident
+here means a stopped motor, and among a dozen other tabs it is easy to lose.
 
-Используются режимы `--app` и `--kiosk` браузеров на движке Chromium — Chrome,
-Edge, Brave, Chromium, Яндекс. Вместе они дают окно без вкладок и адресной
-строки, развёрнутое на весь экран. Закрыть его: **⌘Q** на macOS, **Alt+F4** на
-Windows. Перезагрузить страницу: **⌘R** и **F5** соответственно.
+The `--app` and `--kiosk` modes of browsers on the Chromium engine are used —
+Chrome, Edge, Brave, Chromium, Yandex. Together they give a window with no
+tabs and no address bar, expanded to the full screen. To close it: **⌘Q** on
+macOS, **Alt+F4** on Windows. To reload the page: **⌘R** and **F5**
+respectively.
 
-Окно открывается в собственном профиле браузера (`Prog/.browser-profile`), и
-это не косметика. Флаги полноэкранного режима читаются только при старте
-самого браузера: если Chrome уже запущен, система просто передаёт ссылку
-работающему процессу, флаги теряются и окно открывается обычного размера —
-именно так и было до появления отдельного профиля. Побочная польза: стенд не
-зависит от расширений и вкладок в основном профиле.
+The window opens in a browser profile of its own (`Prog/.browser-profile`),
+and this is not cosmetic. The full-screen flags are read only when the browser
+itself starts: if Chrome is already running, the system hands the link to the
+running process, the flags are lost and the window opens at the usual size —
+which is exactly how it was before the separate profile appeared. A side
+benefit: the stand does not depend on the extensions and tabs of the main
+profile.
 
-Если ни один такой браузер не найден: на macOS открывается новое окно Safari
-(у него этих режимов нет), на Windows — вкладка в браузере по умолчанию.
-На Windows это почти невозможно, потому что Edge есть в любой Windows 10/11.
+If no such browser is found: on macOS a new Safari window opens (Safari has
+none of these modes), on Windows a tab in the default browser. On Windows this
+is next to impossible, because Edge is present in any Windows 10/11.
 
-### Окно Терминала на macOS
+### The Terminal window on macOS
 
-При клике по `START-MAC.command` открывается окно Терминала с ходом запуска и
-закрывается само, когда окно стенда готово. Если оно осталось — ничего не
-сломалось, закройте вручную.
+Clicking `START-MAC.command` opens a Terminal window with the progress of the
+startup, and it closes itself once the stand window is ready. If it stays
+open, nothing is broken; close it by hand.
 
-Приложения-бандла (`.app`) здесь нет намеренно. macOS не даёт бандлу,
-лежащему в `~/Documents`, выполнить соседний скрипт: запуск падал с
-`Operation not permitted` и заработал бы только после выдачи приложению
-доступа к папке «Документы» в настройках приватности. Файл `.command`
-запускается Терминалом, у которого доступ уже есть.
+There is no application bundle (`.app`) here, and that is deliberate. macOS
+does not let a bundle sitting in `~/Documents` execute a script next to it:
+startup failed with `Operation not permitted` and would have worked only after
+granting the application access to the Documents folder in the privacy
+settings. A `.command` file is run by the Terminal, which has that access
+already.
 
-## С телефона
+## From a phone
 
-Сервер слушает все интерфейсы, поэтому с телефона в той же сети страница
-открывается по IP компьютера, например `http://192.168.1.50:8000`.
+The server listens on all interfaces, so from a phone on the same network the
+page opens at the computer's IP address, for example
+`http://192.168.1.50:8000`.
 
-Узнать адрес:
+To find the address:
 
 ```bash
 ipconfig getifaddr en0     # macOS, Wi-Fi
@@ -95,72 +103,77 @@ ipconfig getifaddr en0     # macOS, Wi-Fi
 ipconfig | Select-String IPv4   # Windows
 ```
 
-При первом запуске система спросит разрешение на входящие соединения — без
-него телефон страницу не увидит.
+On the first run the system will ask for permission for incoming
+connections — without it the phone will not see the page.
 
-## Калибровка
+## Calibration
 
-Шестерёнка в шапке страницы открывает окно с тремя блоками: напряжение, ток и
-сила тяги. Порядок один и тот же — посмотреть, что показывает стенд, измерить
-то же самое внешним прибором, вписать измеренное и нажать «Применить».
+The gear in the page header opens a window with three blocks: voltage, current
+and thrust. The order is the same in each one — look at what the stand shows,
+measure the same thing with an external instrument, type in what was measured
+and press "Apply".
 
-Напряжение и ток пересчитываются **в самой плате**: сервер вычисляет новый
-масштаб, отправляет его командой `S` и тут же просит плату записать настройки
-в свою флеш-память командой `W`. Поэтому поправка переживает выключение
-питания и действует в том числе на токовую отсечку. Строка вверху окна
-показывает, записаны настройки или ещё нет.
+Voltage and current are recalculated **in the board itself**: the server
+computes the new scale, sends it with the `S` command and immediately asks the
+board to write the settings into its own flash memory with the `W` command.
+The correction therefore survives a power cycle and applies to the current
+cutoff as well. The line at the top of the window shows whether the settings
+have been written yet or not.
 
-Запись стирает сектор флеш-памяти и на секунду останавливает процессор, так
-что плата никогда не делает этого на ходу: если газ подан, она отвечает
-«сохранится, когда мотор остановится», и выполняет запись после остановки.
+Writing erases a sector of flash memory and stops the processor for a second,
+so the board never does it on the move: if throttle is applied, it answers
+"will be saved when the motor stops" and performs the write once the motor has
+stopped.
 
-Порядок для тока обязателен: сначала «Обнулить» на неподвижном моторе, потом
-масштаб под нагрузкой. Прошивка обрезает отрицательный ток нулём, поэтому при
-неверном нуле показание останется нулевым при любом токе, и никакой масштаб
-этого не исправит — сервер в таком случае прямо об этом и пишет.
+The order for current is mandatory: first "Zero" with the motor at rest, then
+the scale under load. The firmware clips negative current to zero, so with a
+wrong zero the reading stays at zero at any current, and no scale will fix
+that — in such a case the server says so outright.
 
-Сила тяги пересчитывается **на сервере**, потому что прошивка о датчике пока
-не знает и будет присылать только сырые отсчёты. Ноль и масштаб хранятся в
-`Prog/server/logs/calibration.json`; файл переживает перезапуск, но в git не
-попадает, так что при переносе стенда на другой компьютер калибровку тяги
-нужно повторить.
+Thrust is recalculated **on the server**, because the firmware does not know
+about the sensor yet and will send only raw counts. The zero and the scale are
+kept in `Prog/server/logs/calibration.json`; the file survives a restart but
+does not go into git, so when the stand is moved to another computer the
+thrust calibration has to be done again.
 
-## USB-порт
+## The USB port
 
-Порт платы занят только пока в браузере открыто окно стенда. Он освобождается:
+The board's port is held only while a stand window is open in the browser. It
+is released:
 
-- через 3 секунды после закрытия последнего окна;
-- через 3 секунды после того, как страница замолчала — упавший браузер и
-  уснувший телефон тоже считаются закрытым окном;
-- сразу по кнопке «Отдать порт» в интерфейсе (на 3 минуты, для конфигуратора
-  AM32 или заливки прошивки).
+- 3 seconds after the last window is closed;
+- 3 seconds after the page goes silent — a crashed browser and a phone that
+  has gone to sleep also count as a closed window;
+- at once from the "Release port" button in the interface (for 3 minutes, for
+  the AM32 configurator or for flashing firmware).
 
-Почему это важно и как это сломалось в первый раз — [PORT_SHARING.md](PORT_SHARING.md).
+Why this matters and how it broke the first time — [PORT_SHARING.md](PORT_SHARING.md).
 
-## Если не запускается
+## If it does not start
 
-Смотрите лог: `Prog/server/logs/server.log`.
+Look at the log: `Prog/server/logs/server.log`.
 
-| Симптом | Причина |
+| Symptom | Cause |
 |---|---|
-| «Python 3 не найден» | поставьте Python с python.org; на Windows отметьте «Add Python to PATH» |
-| «Не удалось установить зависимости» | нет интернета при первом запуске |
-| «Сервер не поднялся за 10 секунд» | порт 8000 занят другой программой, либо на Windows не разрешён доступ в брандмауэре |
-| «Не найдена папка server» | папку `launcher` вынули из `Prog` — она должна лежать рядом с `server/` |
-| страница открылась, но «плата не найдена» | проверьте USB-кабель; порт мог остаться у конфигуратора AM32 |
+| "Python 3 not found" | install Python from python.org; on Windows tick "Add Python to PATH" |
+| "Could not install the dependencies" | no internet on the first run |
+| "The server did not come up within 10 seconds" | port 8000 is taken by another program, or on Windows access through the firewall was not allowed |
+| "The server folder was not found" | the `launcher` folder was taken out of `Prog` — it has to sit next to `server/` |
+| the page opened, but "board not found" | check the USB cable; the port may have stayed with the AM32 configurator |
 
-Порт можно задать переменной окружения: `STAND_PORT=8080`.
+The port can be set with an environment variable: `STAND_PORT=8080`.
 
-## Проверка без железа
+## Checking without hardware
 
 ```bash
 Prog/.venv/bin/python Prog/server/run.py --simulate
 ```
 
-Поднимает программную модель платы с правдоподобной телеметрией: интерфейс,
-автотест и логику защит можно посмотреть без мотора.
+Brings up a software model of the board with plausible telemetry: the
+interface, the autotest and the protection logic can be looked at without a
+motor.
 
-## Тесты
+## Tests
 
 ```bash
 Prog/.venv/bin/python Prog/server/tests/smoke_test.py

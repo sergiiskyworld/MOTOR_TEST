@@ -67,14 +67,14 @@ class Stand:
         self.autotest_state: Dict[str, Any] = {"running": False}
         self.last_broadcast = 0.0
         self._log: List[Dict[str, Any]] = []
-        # Что датчик тока выдаёт в покое. Отслеживается непрерывно, потому что
-        # сравнить это с сохранённым в плате нулём — единственный способ
-        # заметить, что ноль устарел, в тот момент, когда мотор уже крутится и
-        # измерить покой невозможно.
+        # What the current sensor reads at rest. Tracked continuously, because
+        # comparing it against the zero stored in the board is the only way to
+        # notice that the zero has gone stale at a moment when the motor is
+        # already spinning and rest cannot be measured.
         self._rest_i_mv: Optional[float] = None
-        # Отметка, от которой считается расход. None значит «взять первое же
-        # показание регулятора», чтобы плитка не показывала накопленное с
-        # прошлого включения батареи.
+        # The mark consumption is counted from. None means "take the ESC's
+        # first reading", so that the tile does not show what has accumulated
+        # since the battery was last plugged in.
         self._mah_zero: Optional[int] = None
         self._release_task: Optional[asyncio.Task] = None
 
@@ -100,7 +100,7 @@ class Stand:
             raise
         if not self.clients:
             self.link.release()
-            self.log("info", "порт отпущен: окон больше нет")
+            self.log("info", "port released: no windows left")
 
     def end_session(self, reason: str) -> None:
         """No browser is watching any more: stop the motor, give the port back."""
@@ -110,7 +110,7 @@ class Stand:
         self.stop_all()
         self.link.send("D")
         self.schedule_release()
-        self.log("info", f"сеанс закрыт ({reason})")
+        self.log("info", f"session closed ({reason})")
 
     async def close_dead_sessions(self) -> None:
         """Drop sockets that stopped sending heartbeats."""
@@ -119,7 +119,7 @@ class Stand:
         for client in clients:
             with contextlib.suppress(Exception):
                 await client.close()
-        self.end_session("браузер молчит")
+        self.end_session("the browser went silent")
 
     async def reaper_loop(self) -> None:
         while True:
@@ -136,7 +136,7 @@ class Stand:
         self.stop_all()
         self.link.send("D")
         self.link.release(hold_off=seconds)
-        self.log("info", f"порт отпущен на {int(seconds)} с по запросу")
+        self.log("info", f"port released for {int(seconds)} s on request")
 
     # -- helpers -----------------------------------------------------------
 
@@ -210,7 +210,7 @@ class Stand:
             # ROM bootloader leaves the board off the USB bus entirely, so it
             # takes a physical replug to recover. Flashing goes through the
             # BOOT button and scripts/flash.sh instead.
-            self.log("warn", "переход в DFU только кнопкой BOOT, см. docs/FLASHING.md")
+            self.log("warn", "DFU is entered with the BOOT button only, see docs/FLASHING.md")
         elif kind == "record":
             if message.get("action") == "start":
                 path = self.recorder.start(str(message.get("name", "")))
@@ -228,15 +228,15 @@ class Stand:
                 self.cancel_autotest()
         elif kind == "mahReset":
             self._mah_zero = None
-            self.log("info", "расход обнулён")
+            self.log("info", "consumption reset to zero")
         elif kind == "calibrate":
             self.calibrate(str(message.get("target", "")), message.get("value"), message)
         else:
-            # Молча ронять неизвестные команды — плохая идея: страница уходит
-            # вперёд сервера при любом обновлении, и кнопка просто перестаёт
-            # отзываться, ничего об этом не сообщая.
-            self.log("warn", f"сервер не знает команду «{kind}» — "
-                             f"скорее всего он запущен со старым кодом, перезапустите стенд")
+            # Dropping unknown commands silently is a bad idea: after any
+            # update the page runs ahead of the server, and a button then
+            # stops responding without saying anything about it.
+            self.log("warn", f"the server does not know the command \"{kind}\" - "
+                             f"it is most likely running old code, restart the stand")
 
     # -- calibration -------------------------------------------------------
 
@@ -260,16 +260,16 @@ class Stand:
             # and at a standstill neither exists. Without this the sensor's
             # own zero offset would be taken for current and turned into a
             # coefficient that looks plausible and is pure nonsense.
-            # Ноль, снятый под нагрузкой, содержит эту нагрузку в себе, и все
-            # дальнейшие показания окажутся занижены ровно на неё.
+            # A zero taken under load carries that load inside it, and every
+            # reading after it comes out low by exactly that much.
             if target in ("currentZero", "thrustZero") and spinning:
-                raise CalibrationError("обнулять датчик можно только на неподвижном моторе")
+                raise CalibrationError("the sensor can only be zeroed with the motor stopped")
             if in_board and not settings:
-                raise CalibrationError("плата ещё не сообщила свои настройки")
+                raise CalibrationError("the board has not reported its settings yet")
             if in_board and board.get("iPinMv") is None:
                 raise CalibrationError(
-                    "плата не передаёт сырые показания датчиков — на ней старая "
-                    "прошивка, перепрошейте её"
+                    "the board does not send raw sensor readings: it is running "
+                    "old firmware, reflash it"
                 )
             number = float(value) if value is not None else 0.0
             offset_mv = int(settings.get("currentOffsetMv", 0))
@@ -277,28 +277,28 @@ class Stand:
             if target == "current":
                 new = calib.current_scale(float(board["iPinMv"]), offset_mv, number)
                 self.link.send(f"S currentScaleM {new}")
-                self.log("info", f"калибровка тока по прибору {number:.2f} А: "
-                                 f"{new / 1000.0:.1f} А/В")
+                self.log("info", f"current calibrated against {number:.2f} A on the "
+                                 f"instrument: {new / 1000.0:.1f} A/V")
             elif target == "voltage":
                 new = calib.voltage_scale(float(board["vPinMv"]), number)
                 self.link.send(f"S vbatScaleM {new}")
-                self.log("info", f"калибровка напряжения: vbatScaleM = {new}")
+                self.log("info", f"voltage calibrated: vbatScaleM = {new}")
             elif target == "currentZero":
                 new = calib.current_zero_offset(float(board["iPinMv"]))
                 self.link.send(f"S currentOffsetMv {new}")
-                self.log("info", f"ноль тока: currentOffsetMv = {new} мВ")
+                self.log("info", f"current zero: currentOffsetMv = {new} mV")
             elif target == "thrustZero":
                 zero = self.calibration.set_load_zero(load)
-                self.log("info", f"ноль тяги: {zero:.0f} отсчётов")
+                self.log("info", f"thrust zero: {zero:.0f} counts")
             elif target == "thrust":
                 scale = self.calibration.set_load_measured(load, number)
-                self.log("info", f"калибровка тяги: {scale:.5f} г на отсчёт")
+                self.log("info", f"thrust calibrated: {scale:.5f} g per count")
             else:
                 return
         except CalibrationError as exc:
-            self.log("error", f"калибровка не выполнена: {exc}")
+            self.log("error", f"calibration not carried out: {exc}")
         except (KeyError, TypeError, ValueError) as exc:
-            self.log("error", f"калибровка не выполнена: {exc}")
+            self.log("error", f"calibration not carried out: {exc}")
         else:
             if in_board:
                 # A coefficient that lives only in RAM is lost the moment the
@@ -386,11 +386,11 @@ class Stand:
             was_alive = alive
 
     def _consumption(self, telemetry: Dict[str, Any]) -> Optional[int]:
-        """Расход с момента последнего сброса.
+        """Consumption since the last reset.
 
-        Счётчик внутри регулятора обнулить нечем — он считает от подачи
-        питания и продолжает расти между прогонами. Поэтому стенд запоминает
-        отметку и показывает разницу от неё.
+        There is nothing to zero the counter inside the ESC with: it counts
+        from the moment power was applied and keeps growing between runs. So
+        the stand remembers a mark and shows the difference from it.
         """
         esc = telemetry.get("esc") or {}
         if esc.get("ok") != 1 or esc.get("mah") is None:
@@ -398,20 +398,21 @@ class Stand:
         total = int(esc["mah"])
         if self._mah_zero is None:
             self._mah_zero = total
-        # Регулятор мог перезапуститься и начать счёт заново; отметка из
-        # прошлой жизни сделала бы расход отрицательным.
+        # The ESC may have restarted and begun counting from scratch; a mark
+        # from its previous life would make the consumption negative.
         if total < self._mah_zero:
             self._mah_zero = total
         return total - self._mah_zero
 
     def _track_rest_current(self, telemetry: Dict[str, Any]) -> None:
-        """Запоминает сигнал датчика тока, пока мотор стоит."""
+        """Remembers the current sensor's signal while the motor is stopped."""
         board = telemetry.get("board") or {}
         pin_mv = board.get("iPinMv")
         if pin_mv is None or any(telemetry.get("out") or [0]):
             return
-        # Постоянная времени в несколько секунд: значение нужно устойчивое, а
-        # не быстрое — по нему потом судят о пригодности сохранённого нуля.
+        # A time constant of several seconds: the value has to be steady
+        # rather than quick, because it is what the stored zero is later
+        # judged against.
         if self._rest_i_mv is None:
             self._rest_i_mv = float(pin_mv)
         else:
@@ -468,7 +469,7 @@ class Stand:
             except Exception as exc:  # noqa: BLE001 - a dead loop is worse
                 # Never let one bad iteration kill the loop: last_broadcast
                 # stops advancing, which stops the watchdog being fed.
-                self.log("error", f"сбой рассылки телеметрии: {exc}")
+                self.log("error", f"telemetry broadcast failed: {exc}")
 
     async def _send_all(self, payload: str) -> None:
         dead = []
@@ -568,7 +569,7 @@ def create_app(link, log_dir: Path) -> FastAPI:
                 # Last window closed: cut throttle immediately rather than
                 # waiting for the firmware watchdog to notice, then give the
                 # port back so other tools can reach the board.
-                stand.end_session("окно закрыто")
+                stand.end_session("the window was closed")
 
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
     return app

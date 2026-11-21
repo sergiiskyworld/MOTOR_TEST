@@ -100,9 +100,9 @@ class Recorder:
                 "esc_voltage_v": round(volts, 3),
                 "esc_current_a": round(amps, 3),
                 "esc_power_w": round(volts * amps, 2),
-                # Отсчёт от сброса, как на экране: иначе в файле оказалось бы
-                # накопленное с момента подачи питания, к прогону отношения
-                # не имеющее.
+                # Counted from the reset, as on screen: otherwise the file
+                # would hold what has accumulated since power was applied,
+                # which has nothing to do with this run.
                 "esc_consumed_mah": telemetry.get("mahUsed") or 0,
                 "esc_erpm": esc.get("erpm", 0),
                 "motor_rpm": esc.get("rpm", 0),

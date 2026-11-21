@@ -1,59 +1,60 @@
-# Протокол обмена с платой
+# Board communication protocol
 
-Канал — USB CDC (виртуальный COM-порт), скорость роли не играет.
-Вверх идут текстовые команды, вниз — строки JSON. Всё построчно, разделитель `\n`.
+The channel is USB CDC (a virtual COM port), the baud rate does not matter.
+Text commands go up, JSON lines come down. Everything is line-based, with `\n`
+as the separator.
 
-Все числа в JSON целые и в фиксированных единицах: милливольты, миллиамперы,
-промилле. Это избавляет прошивку от форматирования чисел с плавающей точкой и
-делает поток читаемым в обычном терминале.
+All numbers in the JSON are integers in fixed units: millivolts, milliamps,
+per mille. That spares the firmware from formatting floating-point numbers and
+keeps the stream readable in an ordinary terminal.
 
-## Команды к плате
+## Commands to the board
 
-| Команда | Действие |
+| Command | Action |
 |---|---|
-| `?` | представиться и выдать текущие настройки |
-| `K` | пульс сторожевого таймера |
-| `A` | подать газ (arm) |
-| `D` | снять газ (disarm) |
-| `X` | аварийный стоп с фиксацией аварии |
-| `R` | сбросить аварию |
-| `T <мотор> <промилле>` | задать газ, мотор — `1` или `3`, газ — 0…1000 |
-| `P <протокол>` | сменить протокол: `PWM50`, `PWM100`, `PWM200`, `PWM400`, `DSHOT150`, `DSHOT300`, `DSHOT600` |
-| `S <ключ> <значение>` | изменить настройку |
-| `W` | записать настройки в память платы |
-| `C <мотор> <команда> <повторов>` | спецкоманда DShot (0…47), только при снятом газе |
-| `Z` | перезагрузиться в DFU |
+| `?` | identify itself and report the current settings |
+| `K` | watchdog heartbeat |
+| `A` | enable the throttle (arm) |
+| `D` | remove the throttle (disarm) |
+| `X` | emergency stop, latching the fault |
+| `R` | clear the fault |
+| `T <motor> <per mille>` | set the throttle, motor is `1` or `3`, throttle is 0…1000 |
+| `P <protocol>` | change the protocol: `PWM50`, `PWM100`, `PWM200`, `PWM400`, `DSHOT150`, `DSHOT300`, `DSHOT600` |
+| `S <key> <value>` | change a setting |
+| `W` | write the settings into the board's memory |
+| `C <motor> <command> <repeats>` | DShot special command (0…47), only while disarmed |
+| `Z` | reboot into DFU |
 
-Любая принятая команда — включая `K` — сбрасывает сторожевой таймер.
+Any command that is received, `K` included, resets the watchdog.
 
-### Ключи настроек
+### Setting keys
 
-| Ключ | Единица | По умолчанию |
+| Key | Unit | Default |
 |---|---|---|
-| `maxThrottle` | промилле | 1000 |
-| `rampPerS` | промилле в секунду | 500 |
-| `motorPoles` | магнитов в моторе | 14 |
-| `vbatScaleM` | тысячные вольта на вольт | 8300 |
-| `currentScaleM` | тысячные ампера на вольт | 92600 |
-| `currentOffsetMv` | мВ при нулевом токе | 0 |
-| `currentLimitMa` | мА, 0 отключает отсечку | 0 |
-| `tempLimitC` | °C, 0 отключает отсечку | 0 |
+| `maxThrottle` | per mille | 1000 |
+| `rampPerS` | per mille per second | 500 |
+| `motorPoles` | magnets in the motor | 14 |
+| `vbatScaleM` | thousandths of a volt per volt | 8300 |
+| `currentScaleM` | thousandths of an amp per volt | 92600 |
+| `currentOffsetMv` | mV at zero current | 0 |
+| `currentLimitMa` | mA, 0 disables the cutoff | 0 |
+| `tempLimitC` | °C, 0 disables the cutoff | 0 |
 
-## Ответы платы
+## Replies from the board
 
-### Представление, в ответ на `?`
+### Identification, in reply to `?`
 
 ```json
-{"hello":"thrust-stand-fc","version":"1.0.0","board":"OrqaF405Pro",
+{"hello":"thrust-stand-fc","version":"1.0.0","board":"F405",
  "motors":[1,3],"protocols":["PWM50","PWM100","PWM200","PWM400",
  "DSHOT150","DSHOT300","DSHOT600"],"controlHz":2000,"linkTimeoutMs":300}
 ```
 
-### Настройки, после `?` и после каждой `S`
+### Settings, after `?` and after every `S`
 
-Поле `saved` говорит, совпадает ли то, чем плата пользуется сейчас, с тем, что
-записано в её флеш-памяти. Пока оно `false`, настройки живут до выключения
-питания.
+The `saved` field says whether what the board is using right now matches what
+is written in its flash. While it is `false`, the settings live only until the
+power goes off.
 
 ```json
 {"settings":{"maxThrottle":1000,"rampPerS":500,"motorPoles":14,
@@ -61,40 +62,40 @@
  "currentLimitMa":0,"tempLimitC":0,"saved":true}}
 ```
 
-### Подтверждение команды
+### Command acknowledgement
 
 ```json
 {"ack":"arm","ok":false,"detail":"throttle must be zero"}
 ```
 
-Поле `detail` появляется только при отказе.
+The `detail` field appears only when the command is refused.
 
-### Запись настроек, в ответ на `W`
+### Writing the settings, in reply to `W`
 
 ```json
 {"save":"deferred"}
 ```
 
-| Значение | Что произошло |
+| Value | What happened |
 |---|---|
-| `unchanged` | в памяти уже ровно это, писать нечего |
-| `queued` | запись начнётся сейчас же |
-| `deferred` | газ подан, запись подождёт остановки мотора |
-| `done` | записано и проверено чтением |
-| `failed` | флеш-память не приняла запись |
+| `unchanged` | memory already holds exactly this, there is nothing to write |
+| `queued` | the write starts right away |
+| `deferred` | the throttle is on, the write waits for the motor to stop |
+| `done` | written and verified by reading back |
+| `failed` | the flash did not accept the write |
 
-Стирание сектора флеш-памяти останавливает процессор примерно на секунду:
-выборка команд идёт из той же памяти, поэтому не работают и прерывания, а
-выходы держат последнее значение. Поэтому плата никогда не пишет настройки на
-ходу — она дожидается снятого газа и нулевых выходов. После записи она заново
-шлёт `{"settings":…}`, чтобы хост увидел `"saved":true`.
+Erasing a flash sector stalls the processor for about a second: instructions
+are fetched from that same memory, so interrupts stop working as well and the
+outputs hold their last value. That is why the board never writes settings on
+the move; it waits for the throttle to be off and the outputs at zero. After
+the write it sends `{"settings":…}` again so that the host sees `"saved":true`.
 
-Настройки лежат в последнем секторе флеш-памяти (128 КБ по адресу
-`0x080E0000`). Прошивка занимает около 42 КБ в начале, а `dfu-util` пишет
-ровно столько байт, сколько есть в образе, — поэтому перепрошивка калибровку
-не стирает.
+The settings live in the last flash sector (128 KB at address `0x080E0000`).
+The firmware takes about 42 KB at the beginning, and `dfu-util` writes exactly
+as many bytes as the image contains, so reflashing does not erase the
+calibration.
 
-### Телеметрия, 50 раз в секунду
+### Telemetry, 50 times per second
 
 ```json
 {"t":128400,"state":1,"faults":0,"proto":"DSHOT600",
@@ -105,51 +106,55 @@
  "load":{"raw":167616}}
 ```
 
-| Поле | Смысл |
+| Field | Meaning |
 |---|---|
-| `t` | миллисекунды с момента включения платы |
-| `state` | 0 — безопасно, 1 — газ подан, 2 — авария |
-| `faults` | битовая маска, см. ниже |
-| `thr` | фактический газ в промилле после ограничения скорости нарастания, для M1 и M3 |
-| `out` | что реально ушло в провод: микросекунды для PWM, 0…2047 для DShot |
-| `esc.ok` | пакет телеметрии с верной CRC приходил недавно |
-| `esc.ageMs` | сколько прошло с последнего пакета |
-| `esc.erpm` | электрические обороты как их отдал регулятор |
-| `esc.rpm` | механические, пересчитанные через `motorPoles` |
-| `board` | независимые замеры с датчиков самой платы |
-| `board.vPinMv`, `board.iPinMv` | что на выводах АЦП до применения масштабов |
-| `load.raw` | сырые отсчёты датчика тяги, без пересчёта в граммы |
+| `t` | milliseconds since the board powered up |
+| `state` | 0 is safe, 1 is throttle enabled, 2 is fault |
+| `faults` | bit mask, see below |
+| `thr` | the actual throttle in per mille after the slew-rate limit, for M1 and M3 |
+| `out` | what actually went out on the wire: microseconds for PWM, 0…2047 for DShot |
+| `esc.ok` | a telemetry packet with a correct CRC arrived recently |
+| `esc.ageMs` | how long it has been since the last packet |
+| `esc.erpm` | the eRPM as the ESC reported it |
+| `esc.rpm` | the mechanical rpm, derived through `motorPoles` |
+| `board` | independent measurements from the board's own sensors |
+| `board.vPinMv`, `board.iPinMv` | what is on the ADC pins before the scales are applied |
+| `load.raw` | raw counts from the thrust sensor, with no conversion to grams |
 
-Сырые милливольты нужны калибровке. Пересчитанный ток обрезан снизу нулём
-(`dMv < 0 → 0`), поэтому, если ноль датчика задан выше его реального сигнала,
-показание останется нулевым при любом токе и восстановить по нему масштаб
-невозможно — а по `iPinMv` видно и величину сигнала, и то, что он ниже нуля.
+The raw millivolts are what calibration needs. The converted current is
+clipped at zero from below (`dMv < 0 → 0`), so if the sensor zero is set above
+its real signal, the reading stays at zero for any current and the scale
+cannot be recovered from it; `iPinMv`, on the other hand, shows both the size
+of the signal and the fact that it is below the zero.
 
-Блок `load` прошивка пока не отправляет: датчик тяги ещё не подключён. Сервер
-это переживает — тяга просто показывается прочерком. Когда блок появится,
-пересчёт в граммы делать в плате не нужно: сервер хранит ноль и масштаб сам,
-их задают в окне калибровки (шестерёнка в шапке страницы). Поэтому от прошивки
-нужны именно сырые отсчёты, без какой-либо своей арифметики.
+The firmware does not send the `load` block yet: the thrust sensor is not
+connected. The server survives that, thrust is shown as a dash. When the block
+does appear, the conversion to grams need not be done on the board: the server
+keeps the zero and the scale itself, and they are set in the calibration
+window (the gear icon in the page header). So what is wanted from the firmware
+is raw counts, with no arithmetic of its own.
 
-### Биты аварий
+### Fault bits
 
-| Бит | Причина |
+| Bit | Cause |
 |---|---|
-| 1 | пропала связь с компьютером |
-| 2 | нажат аварийный стоп |
-| 4 | превышен заданный ток |
-| 8 | перегрев ESC |
+| 1 | the link to the computer was lost |
+| 2 | the emergency stop was pressed |
+| 4 | the configured current was exceeded |
+| 8 | ESC overheating |
 
-Авария фиксируется: пока не придёт `R`, команда `A` будет отклоняться.
+The fault latches: until an `R` arrives, the `A` command is refused.
 
-## Правила, которые прошивка соблюдает сама
+## Rules the firmware keeps on its own
 
-- Подать газ можно только при нулевом заданном газе и отсутствии аварий.
-- При снятом газе выход всегда в состоянии покоя: импульс 1000 мкс для PWM,
-  кадр со значением 0 для DShot. Это то, что нужно регулятору, чтобы считаться
-  готовым, и то, от чего мотор не крутится.
-- Газ меняется не скачком, а со скоростью не выше `rampPerS`. Аварийный стоп и
-  отсечки — исключение, они рвут газ мгновенно.
-- Смена протокола сначала снимает газ и сбрасывает состояние, и только потом
-  перенастраивает таймеры.
-- Спецкоманды DShot принимаются только при снятом газе.
+- The throttle can be enabled only when the commanded throttle is zero and
+  there are no faults.
+- While disarmed the output is always at rest: a 1000 µs pulse for PWM, a
+  frame with value 0 for DShot. That is what the ESC needs in order to
+  consider itself ready, and what keeps the motor from turning.
+- The throttle does not change in a step but at a rate no higher than
+  `rampPerS`. The emergency stop and the cutoffs are the exception, they tear
+  the throttle away instantly.
+- Changing the protocol first removes the throttle and resets the state, and
+  only then reconfigures the timers.
+- DShot special commands are accepted only while disarmed.

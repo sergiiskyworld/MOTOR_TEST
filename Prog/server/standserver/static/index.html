@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Стенд тяги — управление</title>
+<title>Thrust stand — control</title>
 <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -11,13 +11,13 @@
 <header class="topbar">
   <div class="brand">
     <span class="dot" id="linkDot"></span>
-    <strong>Стенд тяги</strong>
-    <span class="muted" id="linkInfo">подключение…</span>
+    <strong>Thrust stand</strong>
+    <span class="muted" id="linkInfo">connecting…</span>
   </div>
   <div class="topbar-right">
     <span class="badge" id="stateBadge">—</span>
-    <button class="icon-btn" id="btnCalibrate" title="Калибровка" aria-label="Калибровка">⚙</button>
-    <button class="estop" id="btnEstop" title="Пробел">СТОП</button>
+    <button class="icon-btn" id="btnCalibrate" title="Calibration" aria-label="Calibration">⚙</button>
+    <button class="estop" id="btnEstop" title="Space">STOP</button>
   </div>
 </header>
 
@@ -27,11 +27,11 @@
 
   <section class="card span2">
     <div class="card-head">
-      <h2>Газ</h2>
+      <h2>Throttle</h2>
       <div class="arm-group">
         <button class="btn" id="btnArm">ARM</button>
         <button class="btn" id="btnDisarm">DISARM</button>
-        <button class="btn warn hidden" id="btnReset">Сброс аварии</button>
+        <button class="btn warn hidden" id="btnReset">Clear fault</button>
       </div>
     </div>
 
@@ -39,85 +39,87 @@
       <input type="range" id="throttle" min="0" max="1000" step="5" value="0">
       <div class="throttle-readout">
         <span id="throttleCmd">0.0</span><span class="unit">%</span>
-        <span class="muted small">факт <span id="throttleActual">0.0</span>%</span>
-        <span class="muted small">кадр DShot <span id="throttleRaw">0</span> из 2047</span>
+        <span class="muted small">actual <span id="throttleActual">0.0</span>%</span>
+        <span class="muted small">DShot frame <span id="throttleRaw">0</span> of 2047</span>
       </div>
     </div>
 
     <div class="presets" id="presets"></div>
     <p class="hint">
-      Пробел — аварийный стоп. Стрелки ← → меняют газ на 1%, с Shift — на 5%.
-      Окно стенда открыто на весь экран: закрыть его — ⌘Q на Mac, Alt+F4 на Windows.
+      Space is the emergency stop. The ← → arrows change the throttle by 1%,
+      with Shift by 5%. The stand window is open full screen: to close it,
+      press ⌘Q on Mac or Alt+F4 on Windows.
     </p>
   </section>
 
   <section class="card tiles span2">
     <div class="tile">
-      <span class="tile-label">Тяга</span>
+      <span class="tile-label">Thrust</span>
       <span class="tile-value" id="mThrust">—</span>
       <div class="tile-foot">
-        <span class="tile-unit">г</span>
-        <!-- Тарировать приходится перед каждым прогоном, поэтому кнопка вынесена
-             на саму плитку: за шестерёнкой ей было бы слишком далеко. -->
-        <button class="tile-btn" data-cal="thrustZero" title="Обнулить показания тяги">Тарировать</button>
+        <span class="tile-unit">g</span>
+        <!-- Zeroing has to be done before every run, so the button sits on the
+             tile itself: behind the gear icon it would be too far away. -->
+        <button class="tile-btn" data-cal="thrustZero" title="Zero the thrust reading">Zero</button>
       </div>
     </div>
-    <div class="tile"><span class="tile-label">Обороты</span><span class="tile-value" id="mRpm">—</span><span class="tile-unit">об/мин</span></div>
-    <div class="tile"><span class="tile-label">Ток</span><span class="tile-value" id="mCurrent">—</span><span class="tile-unit">А</span></div>
-    <div class="tile"><span class="tile-label">Напряжение</span><span class="tile-value" id="mVoltage">—</span><span class="tile-unit">В</span></div>
-    <div class="tile"><span class="tile-label">Мощность</span><span class="tile-value" id="mPower">—</span><span class="tile-unit">Вт</span></div>
-    <div class="tile"><span class="tile-label">Температура ESC</span><span class="tile-value" id="mTemp">—</span><span class="tile-unit">°C</span></div>
+    <div class="tile"><span class="tile-label">Rpm</span><span class="tile-value" id="mRpm">—</span><span class="tile-unit">rpm</span></div>
+    <div class="tile"><span class="tile-label">Current</span><span class="tile-value" id="mCurrent">—</span><span class="tile-unit">A</span></div>
+    <div class="tile"><span class="tile-label">Voltage</span><span class="tile-value" id="mVoltage">—</span><span class="tile-unit">V</span></div>
+    <div class="tile"><span class="tile-label">Power</span><span class="tile-value" id="mPower">—</span><span class="tile-unit">W</span></div>
+    <div class="tile"><span class="tile-label">ESC temperature</span><span class="tile-value" id="mTemp">—</span><span class="tile-unit">°C</span></div>
     <div class="tile">
-      <span class="tile-label">Расход</span>
+      <span class="tile-label">Consumption</span>
       <span class="tile-value" id="mMah">—</span>
       <div class="tile-foot">
-        <span class="tile-unit">мА·ч</span>
-        <button class="tile-btn" id="btnMahReset" title="Считать расход заново с этого момента">Сбросить</button>
+        <span class="tile-unit">mAh</span>
+        <button class="tile-btn" id="btnMahReset" title="Count consumption again from this moment">Reset</button>
       </div>
     </div>
     <p class="muted small tiles-note" id="senseSource">—</p>
   </section>
 
   <section class="card span2">
-    <div class="card-head"><h2>Графики</h2><span class="muted small" id="chartRange">последние 30 с</span></div>
+    <div class="card-head"><h2>Charts</h2><span class="muted small" id="chartRange">last 30 s</span></div>
     <canvas id="chartRpm" height="120"></canvas>
     <p class="muted small peaks" id="peaksRpm">—</p>
     <canvas id="chartPower" height="120"></canvas>
     <p class="muted small peaks" id="peaksPower">—</p>
-    <!-- Пик — мгновенное значение, рабочее — наибольшее из средних за секунду.
-         Разницу между ними даёт выброс: он поднимает пик и почти не двигает
-         среднее, поэтому для выбора компонентов нужны оба числа. -->
+    <!-- Peak is the instantaneous value, working is the largest of the
+         one-second averages. A spike is what puts them apart: it lifts the
+         peak and barely moves the average, so choosing components needs both
+         numbers. -->
     <p class="muted small">
-      Пик — самое большое мгновенное значение, рабочее — самое большое среднее
-      за секунду. Отсчёт начинается заново с каждого ARM.
+      Peak is the largest instantaneous value, working is the largest average
+      over a second. The count starts again with every ARM.
     </p>
   </section>
 
   <section class="card">
-    <div class="card-head"><h2>Автотест по ступеням</h2></div>
-    <label class="row"><span>Ступени, %</span>
+    <div class="card-head"><h2>Step autotest</h2></div>
+    <label class="row"><span>Steps, %</span>
       <input type="text" id="atSteps" value="10, 20, 30, 40, 50, 60, 70, 80, 90, 100">
     </label>
-    <label class="row"><span>Выдержка, с</span>
+    <label class="row"><span>Hold, s</span>
       <input type="number" id="atHold" value="4" min="1" max="60" step="0.5">
     </label>
     <div class="row-buttons">
-      <button class="btn" id="btnAutotest">Запустить</button>
-      <button class="btn" id="btnAutotestStop">Прервать</button>
+      <button class="btn" id="btnAutotest">Start</button>
+      <button class="btn" id="btnAutotestStop">Abort</button>
     </div>
     <div class="progress hidden" id="atProgress"><div class="bar" id="atBar"></div><span id="atLabel"></span></div>
   </section>
 
   <section class="card">
-    <div class="card-head"><h2>Запись</h2></div>
-    <label class="row"><span>Имя файла</span><input type="text" id="recName" placeholder="motor-2207-5045"></label>
+    <div class="card-head"><h2>Recording</h2></div>
+    <label class="row"><span>File name</span><input type="text" id="recName" placeholder="motor-2207-5045"></label>
     <div class="row-buttons">
-      <button class="btn" id="btnRecStart">Начать запись</button>
-      <button class="btn" id="btnRecStop">Остановить</button>
+      <button class="btn" id="btnRecStart">Start recording</button>
+      <button class="btn" id="btnRecStop">Stop</button>
     </div>
-    <p class="muted small" id="recStatus">не пишется</p>
+    <p class="muted small" id="recStatus">not recording</p>
     <details>
-      <summary>Сохранённые прогоны</summary>
+      <summary>Saved runs</summary>
       <ul class="logs" id="logList"></ul>
     </details>
   </section>
@@ -127,27 +129,27 @@
       <h2>ESC</h2>
       <span class="badge" id="protoBadge">—</span>
     </div>
-    <p class="hint">Стенд работает только по DShot.</p>
+    <p class="hint">The stand works over DShot only.</p>
     <div class="row-buttons">
-      <button class="btn" id="btnBeep">Пикнуть мотором</button>
-      <button class="btn" id="btnReleasePort">Отдать порт</button>
-      <button class="btn hidden" id="btnAcquirePort">Забрать порт</button>
+      <button class="btn" id="btnBeep">Beep the motor</button>
+      <button class="btn" id="btnReleasePort">Release port</button>
+      <button class="btn hidden" id="btnAcquirePort">Take port</button>
     </div>
-    <p class="hint">«Отдать порт» освобождает USB для конфигуратора AM32 или ArduPilot.</p>
+    <p class="hint">“Release port” frees the USB for the AM32 or ArduPilot configurator.</p>
   </section>
 
   <section class="card">
-    <div class="card-head"><h2>Настройки</h2></div>
-    <label class="row"><span>Предел газа, %</span><input type="number" id="setMaxThrottle" min="1" max="100" step="1"></label>
-    <label class="row"><span>Скорость набора газа, %/с</span><input type="number" id="setRamp" min="1" max="500" step="1"></label>
-    <label class="row"><span>Магнитов в моторе</span><input type="number" id="setPoles" min="2" max="48" step="2"></label>
-    <label class="row"><span>Отсечка по току, А</span><input type="number" id="setCurrentLimit" min="0" max="200" step="1"></label>
-    <label class="row"><span>Отсечка по t° ESC</span><input type="number" id="setTempLimit" min="0" max="150" step="1"></label>
-    <p class="muted small">Ноль в отсечках отключает защиту. Значения уходят в плату сразу.</p>
+    <div class="card-head"><h2>Settings</h2></div>
+    <label class="row"><span>Throttle limit, %</span><input type="number" id="setMaxThrottle" min="1" max="100" step="1"></label>
+    <label class="row"><span>Ramp, %/s</span><input type="number" id="setRamp" min="1" max="500" step="1"></label>
+    <label class="row"><span>Magnets in the motor</span><input type="number" id="setPoles" min="2" max="48" step="2"></label>
+    <label class="row"><span>Current cutoff, A</span><input type="number" id="setCurrentLimit" min="0" max="200" step="1"></label>
+    <label class="row"><span>ESC t° cutoff</span><input type="number" id="setTempLimit" min="0" max="150" step="1"></label>
+    <p class="muted small">Zero in a cutoff turns that protection off. Values go to the board immediately.</p>
   </section>
 
   <section class="card span2">
-    <div class="card-head"><h2>Журнал</h2><span class="muted small" id="rawInfo"></span></div>
+    <div class="card-head"><h2>Log</h2><span class="muted small" id="rawInfo"></span></div>
     <ul class="log" id="log"></ul>
   </section>
 
@@ -155,62 +157,64 @@
 
 <dialog id="calDialog" class="modal">
   <header class="modal-head">
-    <h2>Калибровка</h2>
-    <button class="btn" id="calClose">Закрыть</button>
+    <h2>Calibration</h2>
+    <button class="btn" id="calClose">Close</button>
   </header>
 
   <p class="hint">
-    Измерьте величину внешним прибором и впишите её сюда. Напряжение и ток
-    пересчитываются в самой плате и записываются в её память, поэтому поправка
-    переживает выключение питания и действует на токовую отсечку тоже.
+    Measure the value with an external meter and enter it here. Voltage and
+    current are converted in the board itself and written to its memory, so
+    the correction survives a power cycle and applies to the current cutoff
+    too.
   </p>
 
   <p class="cal-saved" id="calSaved">—</p>
 
   <section class="cal-block">
-    <div class="cal-head"><h3>Напряжение</h3><span class="cal-now"><b id="calNowVoltage">—</b> В</span></div>
+    <div class="cal-head"><h3>Voltage</h3><span class="cal-now"><b id="calNowVoltage">—</b> V</span></div>
     <div class="cal-act">
-      <input type="number" id="calVoltage" step="0.01" min="0" placeholder="по прибору, В">
-      <button class="btn" data-cal="voltage" data-input="calVoltage">Применить</button>
+      <input type="number" id="calVoltage" step="0.01" min="0" placeholder="from the meter, V">
+      <button class="btn" data-cal="voltage" data-input="calVoltage">Apply</button>
     </div>
     <p class="muted small">
-      Сигнал с делителя: <span id="calPinVoltage">—</span> мВ,
-      масштаб в плате: <span id="calScaleVoltage">—</span> (паспортный 8.30 В/В)
+      Signal from the divider: <span id="calPinVoltage">—</span> mV,
+      scale in the board: <span id="calScaleVoltage">—</span> (8.30 V/V by the datasheet)
     </p>
   </section>
 
   <section class="cal-block">
-    <div class="cal-head"><h3>Ток</h3><span class="cal-now"><b id="calNowCurrent">—</b> А</span></div>
+    <div class="cal-head"><h3>Current</h3><span class="cal-now"><b id="calNowCurrent">—</b> A</span></div>
     <div class="cal-act">
-      <input type="number" id="calCurrent" step="0.01" min="0" placeholder="по прибору, А">
-      <button class="btn" data-cal="current" data-input="calCurrent">Применить</button>
+      <input type="number" id="calCurrent" step="0.01" min="0" placeholder="from the meter, A">
+      <button class="btn" data-cal="current" data-input="calCurrent">Apply</button>
     </div>
     <p class="muted small">
-      Дайте мотору рабочий ток, снимите показание образцовым амперметром и
-      впишите его. Чем больше ток, тем точнее выйдет масштаб: шаг АЦП здесь
-      около 30 мА, и на половине ампера от него остаётся одна значащая цифра.
+      Give the motor a working current, take the reading from a reference
+      ammeter and enter it. The larger the current, the more accurate the
+      scale comes out: the ADC step here is about 30 mA, and at half an amp
+      only one significant digit is left of it.
     </p>
     <p class="muted small">
-      Сигнал с датчика: <span id="calPinCurrent">—</span> мВ,
-      сейчас в плате: <span id="calScaleCurrent">—</span> и ноль
-      <span id="calZeroCurrent">—</span> мВ
+      Signal from the sensor: <span id="calPinCurrent">—</span> mV,
+      in the board now: <span id="calScaleCurrent">—</span> and zero
+      <span id="calZeroCurrent">—</span> mV
     </p>
     <p class="muted small" id="calCurrentSource">—</p>
   </section>
 
   <section class="cal-block">
-    <div class="cal-head"><h3>Сила тяги</h3><span class="cal-now"><b id="calNowThrust">—</b> г</span></div>
+    <div class="cal-head"><h3>Thrust</h3><span class="cal-now"><b id="calNowThrust">—</b> g</span></div>
     <p class="muted small">
-      Снимите нагрузку и нажмите «Тара», затем подвесьте эталонный груз известной
-      массы и впишите её. Тяга пока не приходит от платы — калибровка заработает,
-      когда датчик подключат.
+      Take the load off and press “Zero”, then hang a reference weight of
+      known mass and enter it. Thrust does not come from the board yet — the
+      calibration will start working once the sensor is connected.
     </p>
     <div class="cal-act">
-      <input type="number" id="calThrust" step="1" min="0" placeholder="эталон, г">
-      <button class="btn" data-cal="thrust" data-input="calThrust">Применить</button>
-      <button class="btn" data-cal="thrustZero">Тара</button>
+      <input type="number" id="calThrust" step="1" min="0" placeholder="reference, g">
+      <button class="btn" data-cal="thrust" data-input="calThrust">Apply</button>
+      <button class="btn" data-cal="thrustZero">Zero</button>
     </div>
-    <p class="muted small">Отсчётов с датчика: <span id="calRawThrust">—</span>, г на отсчёт: <span id="calScaleThrust">—</span></p>
+    <p class="muted small">Counts from the sensor: <span id="calRawThrust">—</span>, g per count: <span id="calScaleThrust">—</span></p>
   </section>
 
   <p class="muted small" id="calStatus">—</p>

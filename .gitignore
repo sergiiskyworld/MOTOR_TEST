@@ -5,17 +5,17 @@ __pycache__/
 
 # local environments
 .venv*/
-# профиль браузера, в котором открывается окно стенда
+# the browser profile the stand window is opened in
 Prog/.browser-profile/
 
 # recorded runs
 Prog/server/logs/
 logs/
 
-# Снимки флеша, которые скрипт прошивки делает каждый раз. Это выход
-# инструмента, а не исходник: по мегабайту на запуск, и все, кроме самого
-# первого, содержат нашу же прошивку. Заводской образ лежит в репозитории
-# отдельно, он добавлен принудительно.
+# Flash dumps the flashing script takes before every write. These are tool
+# output, not source: a megabyte each, and every one after the first holds our
+# own firmware. If you want to be able to put the board back the way it came,
+# keep your copy of the first dump somewhere outside the repository.
 firmware/backup/
 
 # macOS

@@ -250,8 +250,8 @@ input[type=range]::-moz-range-thumb {
 .tile-btn:hover { border-color: var(--accent); color: var(--text); }
 .tiles-note { grid-column: 1 / -1; margin: 0; }
 
-/* Цифры под графиком. Табличные цифры держат ширину, иначе строка дёргается
-   на каждом обновлении максимума. */
+/* The numbers under a chart. Tabular figures hold their width, otherwise the
+   line twitches on every update of a maximum. */
 .peaks {
   margin: 2px 0 10px;
   color: var(--text);

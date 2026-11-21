@@ -1,82 +1,87 @@
-# Прошивка полётного контроллера
+# Flashing the flight controller
 
-Прошивка ложится по адресу `0x08000000` через USB DFU и занимает всю флеш-память.
+The firmware goes in at address `0x08000000` over USB DFU and takes the whole
+flash.
 
-> **Она стирает то, что стояло на плате раньше** — Betaflight или ArduPilot.
-> Вернуть их можно так же через DFU, из Betaflight Configurator или
-> Mission Planner. Если плата вам ещё нужна для полётов, сохраните текущий
-> дамп до начала: `dfu-util -a 0 -s 0x08000000:0x100000 -U backup.bin`.
+> **It erases whatever was on the board before**, Betaflight or ArduPilot.
+> They can be put back the same way through DFU, from Betaflight Configurator
+> or Mission Planner. If you still need the board for flying, save the current
+> dump before you start: `dfu-util -a 0 -s 0x08000000:0x100000 -U backup.bin`.
 
-## Установка инструментов
+## Installing the tools
 
 ```bash
 pip install platformio
 ```
 
-PlatformIO сам подтянет компилятор `arm-none-eabi-gcc`, ядро STM32duino и
-`dfu-util` при первой сборке. На macOS дополнительных драйверов не нужно, на
-Windows может потребоваться заменить драйвер STM32 BOOTLOADER на WinUSB через
-Zadig.
+PlatformIO pulls in the `arm-none-eabi-gcc` compiler, the STM32duino core and
+`dfu-util` by itself on the first build. On macOS no extra drivers are needed;
+on Windows you may have to replace the STM32 BOOTLOADER driver with WinUSB
+using Zadig.
 
-## Вход в режим DFU
+## Entering DFU mode
 
-1. **Кнопкой BOOT** — удерживая кнопку BOOT на плате, воткнуть USB.
-2. **Замыканием площадок BOOT** — если кнопки нет, замкнуть площадки `BOOT`
-   пинцетом в момент подачи USB.
+1. **With the BOOT button.** Hold the BOOT button on the board and plug in
+   USB.
+2. **By shorting the BOOT pads.** If there is no button, short the `BOOT` pads
+   with tweezers at the moment USB is connected.
 
-Программного способа нет, и это проверено на железе. Команда `Z` («перейти в
-DFU») сбрасывает плату, но ROM-загрузчик после программного прыжка не
-поднимает USB: плата полностью уходит с шины, и поднять её можно только
-переподключением USB. Поэтому кнопка из веб-интерфейса убрана, а сервер
-команду `Z` не отправляет.
+There is no software way, and that has been checked on hardware. The `Z`
+command ("jump to DFU") resets the board, but after a software jump the ROM
+bootloader does not bring USB up: the board leaves the bus completely, and the
+only way to bring it back is to reconnect USB. The button has therefore been
+removed from the web interface, and the server does not send the `Z` command.
 
-Проверялись три варианта прыжка: с `SYSCFG`-ремапом памяти (управление
-возвращалось в приложение), без ремапа из `setup()` (плата уходила с шины) и
-из `SystemClock_Config()` до подъёма PLL — последний вариант есть в исходниках,
-но на плате не проверен. Диагностика для этого осталась в телеметрии: поле
-`bootFlag` показывает, что механизм передачи флага через сброс работает, а
-счётчик `tries` в backup SRAM считает попытки прыжка.
+Three variants of the jump were tried: with a `SYSCFG` memory remap (control
+came back to the application), without the remap from `setup()` (the board
+left the bus), and from `SystemClock_Config()` before the PLL comes up; the
+last variant is in the sources but has not been checked on the board. The
+diagnostics for this are still in the telemetry: the `bootFlag` field shows
+that the mechanism for passing a flag through a reset works, and the `tries`
+counter in backup SRAM counts the jump attempts.
 
-Проверить, что плата в DFU:
+To check that the board is in DFU:
 
 ```bash
 dfu-util -l
 # Found DFU: [0483:df11] ... name="@Internal Flash  /0x08000000/..."
 ```
 
-## Сборка и заливка
+## Building and flashing
 
 ```bash
 cd firmware
-pio run            # только собрать
-pio run -t upload  # собрать и залить
+pio run            # build only
+pio run -t upload  # build and flash
 ```
 
-После заливки плата перезапустится и появится как обычный последовательный
-порт (VID `0x0483`, PID `0x5740`). Красный и зелёный светодиоды покажут
-состояние, пищалка коротко пикнет.
+After flashing, the board restarts and appears as an ordinary serial port
+(VID `0x0483`, PID `0x5740`). The red and green LEDs show the state, and the
+buzzer gives a short beep.
 
-## Что делает прошивка с тактированием
+## What the firmware does with the clocks
 
-Ядро Arduino не знает про кварц именно этой платы, поэтому прошивка
-переопределяет `SystemClock_Config()` (`src/main.cpp`): кварц 8 МГц, PLL
-`M=8, N=336, P=2` даёт 168 МГц на ядро, `Q=7` — ровно 48 МГц для USB. Шина APB1
-делится на 4, из-за чего таймеры TIM2/TIM3 тактируются 84 МГц — именно от этой
-частоты считаются длительности бит DShot.
+The Arduino core does not know about the crystal on this particular board, so
+the firmware overrides `SystemClock_Config()` (`src/main.cpp`): an 8 MHz
+crystal, PLL `M=8, N=336, P=2` gives 168 MHz for the core, `Q=7` gives exactly
+48 MHz for USB. The APB1 bus is divided by 4, which clocks timers TIM2/TIM3 at
+84 MHz, and the DShot bit durations are counted from that frequency.
 
-Если USB не определяется после прошивки, первым делом смотреть сюда: неверная
-частота на USB — самая частая причина.
+If USB is not detected after flashing, look here first: the wrong USB clock is
+the most frequent cause.
 
-## Проверка без интерфейса
+## Checking without the interface
 
-Плату можно погонять из обычного терминала, протокол текстовый:
+The board can be exercised from an ordinary terminal, the protocol is text:
 
 ```bash
 screen /dev/tty.usbmodem1234 115200
 ```
 
-Отправьте `?` — плата представится и выдаст настройки. Раз в 20 мс пойдут
-строки телеметрии. Полный список команд — [PROTOCOL.md](PROTOCOL.md).
+Send `?` and the board identifies itself and reports its settings. Telemetry
+lines will come once every 20 ms. The full list of commands is in
+[PROTOCOL.md](PROTOCOL.md).
 
-Учтите: сторожевой таймер ждёт команду не реже чем раз в 300 мс, так что
-вручную подать газ и удержать его не получится — для этого и нужен сервер.
+Bear in mind that the watchdog expects a command at least once every 300 ms,
+so applying throttle by hand and holding it will not work; that is exactly
+what the server is for.

@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Послушать плату напрямую, в обход сервера.
+"""Listen to the board directly, bypassing the server.
 
-Печатает сырые строки как они приходят. Полезно, когда сервер видит плату, но
-чего-то не получает: сразу видно, шлёт ли плата вообще и валидный ли это JSON.
+Prints the raw lines as they arrive. Useful when the server sees the board but
+does not get something from it: it shows at once whether the board sends
+anything at all and whether what it sends is valid JSON.
 
     python server/tests/raw_listen.py [--seconds 5] [--send '?']
 """
@@ -32,9 +33,9 @@ def main() -> int:
 
     device = args.port or find_port()
     if not device:
-        print("плата не найдена", file=sys.stderr)
+        print("no board found", file=sys.stderr)
         return 1
-    print(f"порт: {device}")
+    print(f"port: {device}")
 
     with serial.Serial(device, 115200, timeout=0.1) as port:
         time.sleep(0.2)
@@ -74,10 +75,10 @@ def main() -> int:
                     print(f"{marker} [{len(text):4d}] {text[:400]}")
 
         print()
-        print(f"байт получено:  {total_bytes}")
-        print(f"строк:          {lines}  (валидный JSON: {good}, битых: {bad})")
+        print(f"bytes received: {total_bytes}")
+        print(f"lines:          {lines}  (valid JSON: {good}, broken: {bad})")
         if buffer:
-            print(f"хвост без перевода строки: [{len(buffer)}] {buffer[:200]!r}")
+            print(f"tail with no newline: [{len(buffer)}] {buffer[:200]!r}")
     return 0
 
 

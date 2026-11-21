@@ -17,13 +17,13 @@ function readText(path) {
   const data = $.NSString.stringWithContentsOfFileEncodingError(
     path, $.NSUTF8StringEncoding, null);
   if (!data) {
-    throw new Error('не прочитался файл ' + path);
+    throw new Error('could not read file ' + path);
   }
   return ObjC.unwrap(data);
 }
 
-// Запускать из корня проекта: осталось только текущий каталог, потому что
-// osascript не сообщает сценарию собственный путь.
+// Run from the project root: the current directory is all there is to go on,
+// because osascript does not tell the script its own path.
 function loadPeaksClass() {
   const root = ObjC.unwrap($.NSFileManager.defaultManager.currentDirectoryPath);
   const source = readText(root + '/Prog/server/standserver/static/app.js');
@@ -31,7 +31,7 @@ function loadPeaksClass() {
   const begin = source.indexOf('class Peaks {');
   const end = source.indexOf('const peaks = new Peaks();');
   if (begin < 0 || end < 0 || end < begin) {
-    throw new Error('класс Peaks не найден в app.js — тест отстал от кода');
+    throw new Error('class Peaks not found in app.js — the test has fallen behind the code');
   }
   return new Function(source.slice(begin, end) + '; return Peaks;')();
 }
@@ -52,56 +52,58 @@ const asInt = (v) => Math.round(v).toString();
 const as2 = (v) => v.toFixed(2);
 
 let p = new Peaks();
-expect('пока ничего не измерено, показан прочерк',
-       p.line('rpm', 'Обороты', 'об/мин', asInt) === 'Обороты: —');
+expect('a dash is shown while nothing has been measured',
+       p.line('rpm', 'Rpm', 'rpm', asInt) === 'Rpm: —');
 
-// Выброс поднимает пик и почти не двигает среднее. Это и есть причина, по
-// которой под графиком стоят два числа, а не одно.
+// A spike lifts the peak and barely moves the average. That is the very
+// reason there are two numbers under the chart instead of one.
 p.put('rpm', 1000, 1000);
 p.put('rpm', 9000, 1200);
 p.put('rpm', 1100, 1150);
-expect('пик берёт мгновенный выброс', p.peak.get('rpm') === 9000);
-expect('рабочее значение считается только по средним', p.work.get('rpm') === 1200);
-expect('строка собирается с размерностью',
-       p.line('rpm', 'Обороты', 'об/мин', asInt)
-       === 'Обороты: пик 9000, рабочее 1200 об/мин');
+expect('the peak takes the instantaneous spike', p.peak.get('rpm') === 9000);
+expect('the working value is counted from the averages only', p.work.get('rpm') === 1200);
+expect('the line comes together with its unit',
+       p.line('rpm', 'Rpm', 'rpm', asInt)
+       === 'Rpm: peak 9000, working 1200 rpm');
 
-// Ноль — это измерение, а не его отсутствие, и путать их нельзя: мотор может
-// честно стоять.
+// Zero is a measurement, not the absence of one, and the two must not be
+// confused: the motor may honestly be standing still.
 const zero = new Peaks();
 zero.put('current', 0, 0);
-expect('ноль не выглядит как отсутствие измерения',
-       zero.line('current', 'Ток', 'А', as2) === 'Ток: пик 0.00, рабочее 0.00 А');
+expect('zero does not look like a missing measurement',
+       zero.line('current', 'Current', 'A', as2) === 'Current: peak 0.00, working 0.00 A');
 
-// Среднего может не быть: сглаживание отдаёт null, пока величину не измеряли.
+// There may be no average: smoothing returns null while the quantity has not
+// been measured.
 const noAvg = new Peaks();
 noAvg.put('power', 50, null);
-expect('без среднего рабочее показывается равным пику',
-       noAvg.line('power', 'Мощность', 'Вт', asInt) === 'Мощность: пик 50, рабочее 50 Вт');
+expect('without an average the working value is shown equal to the peak',
+       noAvg.line('power', 'Power', 'W', asInt) === 'Power: peak 50, working 50 W');
 noAvg.put('power', 70, undefined);
-expect('недостоверное среднее не портит накопленное',
+expect('an unreliable average does not spoil what was accumulated',
        noAvg.work.get('power') === undefined && noAvg.peak.get('power') === 70);
 noAvg.put('power', NaN, NaN);
-expect('NaN не затирает максимумы', noAvg.peak.get('power') === 70);
+expect('NaN does not wipe out the maxima', noAvg.peak.get('power') === 70);
 
-// Максимум по определению не убывает, пока прогон не начат заново.
+// A maximum by definition does not decrease until the run is started again.
 p.put('rpm', 10, 10);
-expect('максимум не падает вслед за показаниями',
+expect('the maximum does not fall along with the readings',
        p.peak.get('rpm') === 9000 && p.work.get('rpm') === 1200);
 
-// Каждый ARM начинает новый прогон, и цифры прошлого к нему отношения не имеют.
+// Every ARM starts a new run, and the numbers of the previous one have
+// nothing to do with it.
 p.reset();
-expect('сброс стирает обе величины',
-       p.line('rpm', 'Обороты', 'об/мин', asInt) === 'Обороты: —');
+expect('a reset erases both quantities',
+       p.line('rpm', 'Rpm', 'rpm', asInt) === 'Rpm: —');
 p.put('rpm', 5, 5);
-expect('после сброса отсчёт идёт заново', p.peak.get('rpm') === 5);
+expect('after a reset the count goes from the start', p.peak.get('rpm') === 5);
 
-// Величины не должны мешать друг другу.
+// The quantities must not interfere with one another.
 const many = new Peaks();
 many.put('rpm', 100, 100);
 many.put('current', 7, 7);
-expect('величины считаются независимо',
+expect('the quantities are counted independently',
        many.peak.get('rpm') === 100 && many.peak.get('current') === 7);
 
-lines.push(failures ? failures + ' проверок не прошло' : 'all checks passed');
+lines.push(failures ? failures + ' checks failed' : 'all checks passed');
 lines.join('\n');

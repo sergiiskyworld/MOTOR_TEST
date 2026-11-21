@@ -1,21 +1,22 @@
 #!/bin/bash
 #
-# Запуск стенда тяги (macOS и Linux).
+# Starting the thrust stand (macOS and Linux).
 #
-# Этот файл — движок запуска. Кликать нужно по «START-MAC.command» в папке
-# Prog. На Windows то же самое делает «START-WINDOWS.bat».
+# This file is the startup engine. The file to click is "START-MAC.command"
+# in the Prog folder. On Windows "START-WINDOWS.bat" does the same thing.
 #
-# Что делает:
-#   1. при первом запуске создаёт окружение Python и ставит зависимости;
-#   2. поднимает сервер, если он ещё не отвечает;
-#   3. открывает страницу в отдельном окне браузера;
-#   4. закрывает за собой окно Терминала.
+# What it does:
+#   1. on the first run, creates a Python environment and installs the
+#      dependencies;
+#   2. brings the server up if it is not answering yet;
+#   3. opens the page in a separate browser window;
+#   4. closes the Terminal window behind itself.
 #
-# Всё нужное лежит внутри папки Prog, снаружи ничего не требуется.
+# Everything needed is inside the Prog folder, nothing outside it is required.
 #
-# USB-порт сервер занимает только пока в браузере открыто окно стенда,
-# поэтому конфигураторы AM32/ArduPilot остаются работоспособными.
-# Подробности: ../../docs/PORT_SHARING.md
+# The server holds the USB port only while the stand window is open in the
+# browser, so the AM32 and ArduPilot configurators keep working.
+# Details: ../../docs/PORT_SHARING.md
 
 set -u
 
@@ -25,8 +26,8 @@ URL="http://127.0.0.1:${PORT}/"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROG="$(dirname "$HERE")"
 SERVER="$PROG/server"
-# У Windows своё окружение (.venv-win): папку проекта можно носить между
-# системами, а окружения Python у них несовместимы.
+# Windows has an environment of its own (.venv-win): the project folder can be
+# carried between systems, but their Python environments are not compatible.
 VENV="$PROG/.venv"
 PYTHON="$VENV/bin/python"
 LOG_DIR="$SERVER/logs"
@@ -40,13 +41,13 @@ fail() {
     note ""
     note "!! $1"
     note ""
-    note "Подробности в логе: $LOG"
-    # Окно не должно закрыться мгновенно, иначе человек не увидит причину.
+    note "Details are in the log: $LOG"
+    # The window must not close instantly, or the person never sees the reason.
     if [ -t 0 ]; then
-        note "Нажмите Enter, чтобы закрыть."
+        note "Press Enter to close this window."
         read -r _
     else
-        osascript -e "display alert \"Стенд тяги\" message \"$1\" as critical" >/dev/null 2>&1
+        osascript -e "display alert \"Thrust stand\" message \"$1\" as critical" >/dev/null 2>&1
     fi
     exit 1
 }
@@ -55,30 +56,30 @@ server_answers() {
     curl -fsS -m 2 -o /dev/null "$URL" 2>/dev/null
 }
 
-[ -f "$SERVER/run.py" ] || fail "Не найдена папка server — папку launcher нельзя выносить из Prog"
+[ -f "$SERVER/run.py" ] || fail "The server folder was not found — the launcher folder must stay inside Prog"
 
-# --- 1. Окружение Python ------------------------------------------------------
+# --- 1. Python environment ---------------------------------------------------
 
 if [ ! -x "$PYTHON" ]; then
-    note "==> Первый запуск: готовлю окружение Python"
-    command -v python3 >/dev/null 2>&1 || fail "Python 3 не найден. Установите его с python.org"
-    python3 -m venv "$VENV" || fail "Не удалось создать окружение Python"
+    note "==> First run: preparing the Python environment"
+    command -v python3 >/dev/null 2>&1 || fail "Python 3 was not found. Install it from python.org"
+    python3 -m venv "$VENV" || fail "Could not create the Python environment"
     "$VENV/bin/pip" install --quiet --upgrade pip
     "$VENV/bin/pip" install --quiet -r "$SERVER/requirements.txt" \
-        || fail "Не удалось установить зависимости (нужен интернет)"
-    note "    готово"
+        || fail "Could not install the dependencies (an internet connection is needed)"
+    note "    done"
 fi
 
-# --- 2. Сервер ----------------------------------------------------------------
+# --- 2. The server -----------------------------------------------------------
 
 if server_answers; then
-    note "==> Сервер уже работает"
+    note "==> The server is already running"
 else
-    note "==> Запускаю сервер"
-    cd "$SERVER" || fail "Не найдена папка server"
-    # start_new_session отвязывает сервер от терминала целиком: закрытие окна
-    # запуска (или самого Терминала) его больше не уносит. Одного nohup для
-    # этого мало — сигнал приходит всей группе процессов.
+    note "==> Starting the server"
+    cd "$SERVER" || fail "The server folder was not found"
+    # start_new_session detaches the server from the terminal completely:
+    # closing the startup window (or Terminal itself) no longer takes it down.
+    # nohup alone is not enough — the signal reaches the whole process group.
     "$PYTHON" - "$PORT" "$LOG_DIR" "$LOG" <<'PY'
 import subprocess
 import sys
@@ -99,24 +100,26 @@ PY
         sleep 0.25
         server_answers && break
     done
-    server_answers || fail "Сервер не поднялся за 10 секунд"
-    note "    сервер отвечает на порту $PORT"
+    server_answers || fail "The server did not come up within 10 seconds"
+    note "    the server answers on port $PORT"
 fi
 
-# --- 3. Отдельное окно браузера ----------------------------------------------
+# --- 3. A separate browser window ---------------------------------------------
 
-# Стенд должен открываться своим окном на весь экран, а не вкладкой в куче
-# чужих: случайно закрытая вкладка здесь означает остановленный мотор.
-# Браузеры на движке Chromium умеют режим --app (окно без адресной строки и без
-# вкладок) и --kiosk (тот же экран целиком). Safari ни того, ни другого не
-# имеет, поэтому для него открывается обычное новое окно через AppleScript.
+# The stand has to open in a window of its own, filling the screen, and not as
+# one tab among a pile of other people's: a tab closed by accident here means a
+# stopped motor.
+# Browsers on the Chromium engine have an --app mode (a window with no address
+# bar and no tabs) and --kiosk (the same window over the whole screen). Safari
+# has neither, so for it an ordinary new window is opened through AppleScript.
 #
-# Своя папка профиля здесь обязательна. Флаги --kiosk и --start-fullscreen
-# читаются только при старте самого браузера, а если он уже запущен, open
-# просто передаёт ссылку работающему процессу, и окно открывается обычного
-# размера — проверено, так и было. С отдельным профилем стартует свой процесс,
-# который эти флаги видит. Заодно стенд не зависит от расширений и вкладок в
-# основном профиле.
+# A profile folder of its own is mandatory here. The --kiosk and
+# --start-fullscreen flags are read only when the browser itself starts, and if
+# it is already running, open merely passes the link to the running process and
+# the window opens at ordinary size — this was checked, and that is what
+# happened. With a separate profile a process of its own starts, and that
+# process sees the flags. As a bonus, the stand does not depend on the
+# extensions and tabs in the main profile.
 PROFILE="$PROG/.browser-profile"
 
 open_app_window() {
@@ -130,8 +133,9 @@ open_app_window() {
         "/Applications/Chromium.app"
     do
         if [ -d "$app" ]; then
-            # -n нужен, чтобы аргументы дошли до нового процесса браузера:
-            # без него open отдаёт ссылку старому, и все флаги теряются.
+            # -n is needed so that the arguments reach the new browser process:
+            # without it open hands the link to the old one and all the flags
+            # are lost.
             open -na "$app" --args \
                 --user-data-dir="$PROFILE" \
                 --kiosk \
@@ -153,20 +157,20 @@ OSA
     return 1
 }
 
-note "==> Открываю окно стенда"
+note "==> Opening the stand window"
 if ! open_app_window; then
     if command -v xdg-open >/dev/null 2>&1; then
         xdg-open "$URL" >/dev/null 2>&1
     else
-        note "    браузер не найден, откройте вручную: $URL"
+        note "    no browser was found, open this address by hand: $URL"
     fi
 fi
 
-# --- 4. Убрать за собой окно Терминала ---------------------------------------
+# --- 4. Clean up the Terminal window ------------------------------------------
 
-# Окно запуска больше не нужно: страница открыта в своём окне, сервер живёт
-# отдельным процессом. Если что-то не сработает, окно просто останется — на
-# запуск это не влияет.
+# The startup window is not needed any more: the page is open in a window of
+# its own and the server lives as a separate process. If something here does
+# not work, the window simply stays open — that does not affect startup.
 close_launcher_window() {
     [ "${TERM_PROGRAM:-}" = "Apple_Terminal" ] || return 0
 
@@ -174,10 +178,11 @@ close_launcher_window() {
     tty_path="$(tty 2>/dev/null || true)"
     [ -n "$tty_path" ] || return 0
 
-    # Своё окно надо найти сейчас, пока скрипт ещё работает: у живой вкладки
-    # busy = true и читается tty. После выхода из оболочки tty превращается в
-    # missing value, а его номер переиспользуют новые окна — по одному tty
-    # можно закрыть чужое окно, и сравнение с ним к тому же падает с ошибкой.
+    # Our own window has to be found now, while the script is still running: a
+    # live tab has busy = true and its tty can be read. After the shell exits,
+    # tty turns into missing value and its number is reused by new windows —
+    # by tty alone one can close somebody else's window, and comparing against
+    # it fails with an error on top of that.
     window_id="$(osascript 2>/dev/null <<OSA
 tell application "Terminal"
     repeat with w in windows
@@ -195,11 +200,11 @@ OSA
         '' | *[!0-9]*) return 0 ;;
     esac
 
-    # Закрыватель нужно и отложить, и отвязать от этой оболочки. Отложить —
-    # потому что окно с живым процессом Терминал закрывать отказывается (молча,
-    # без ошибки). Отвязать — потому что обычная фоновая задача через `&`
-    # умирает вместе с окном и до закрытия не доживает; проверено, ровно как с
-    # самим сервером выше.
+    # The closer has to be both delayed and detached from this shell. Delayed,
+    # because Terminal refuses to close a window with a live process in it
+    # (silently, without an error). Detached, because an ordinary background
+    # job started with `&` dies together with the window and does not live long
+    # enough to close it; checked, exactly as with the server above.
     "$PYTHON" - "$window_id" <<'PY'
 import subprocess
 import sys

@@ -42,14 +42,14 @@ SAFE_BEFORE_IDENTIFY = {"?"}
 # flash freezes the processor for about a second, so the board refuses to do
 # it while anything is spinning and answers "deferred" instead.
 SAVE_EVENTS = {
-    "done": {"level": "info", "msg": "настройки сохранены в плату"},
-    "unchanged": {"level": "info", "msg": "настройки в плате уже такие же"},
-    "queued": {"level": "info", "msg": "сохраняю настройки в плату…"},
+    "done": {"level": "info", "msg": "settings saved to the board"},
+    "unchanged": {"level": "info", "msg": "the board already holds these settings"},
+    "queued": {"level": "info", "msg": "saving the settings to the board…"},
     "deferred": {
         "level": "warn",
-        "msg": "настройки сохранятся в плату, как только мотор остановится",
+        "msg": "the settings will be saved to the board as soon as the motor stops",
     },
-    "failed": {"level": "error", "msg": "плата не смогла сохранить настройки"},
+    "failed": {"level": "error", "msg": "the board could not save the settings"},
 }
 
 
@@ -200,7 +200,7 @@ class SerialLink:
             return
         if not self._closed.wait(timeout=2.0):
             self.events.append(
-                {"level": "warn", "msg": "порт не закрылся за 2 с, закрываю принудительно"}
+                {"level": "warn", "msg": "the port did not close within 2 s, forcing it"}
             )
             self._close()
 
@@ -269,7 +269,7 @@ class SerialLink:
             self.port_name = device
             self.connected = True
             self._opened_at = time.monotonic()
-        self.events.append({"level": "info", "msg": f"порт открыт: {device}"})
+        self.events.append({"level": "info", "msg": f"port opened: {device}"})
         # Ask the board to introduce itself. Until it does, nothing else is
         # allowed out of the writer.
         self.send("?")
@@ -285,7 +285,7 @@ class SerialLink:
                 # to outlive every possible error. It once died on a TypeError
                 # raised from inside pyserial, and with it went the only code
                 # that could release or reopen the port.
-                self.events.append({"level": "error", "msg": f"сбой чтения порта: {exc}"})
+                self.events.append({"level": "error", "msg": f"port read failed: {exc}"})
                 self._close()
                 buffer = b""
                 time.sleep(0.5)
@@ -294,7 +294,7 @@ class SerialLink:
         """One pass of the reader loop, returning the new line buffer."""
         if not self.wanted:
             if self.connected:
-                self.events.append({"level": "info", "msg": "порт отпущен"})
+                self.events.append({"level": "info", "msg": "port released"})
                 self._close()
             time.sleep(0.2)
             return b""
@@ -312,7 +312,7 @@ class SerialLink:
             self.events.append(
                 {
                     "level": "warn",
-                    "msg": f"{device} не отвечает как плата стенда, отпускаю",
+                    "msg": f"{device} does not answer as the stand's board, letting it go",
                 }
             )
             if device:
@@ -357,7 +357,7 @@ class SerialLink:
             self.hello = message
             if first:
                 self.events.append(
-                    {"level": "info", "msg": f"плата опознана: {message.get('version')}"}
+                    {"level": "info", "msg": f"board identified: {message.get('version')}"}
                 )
                 self._remember_board_serial()
         elif "settings" in message:
@@ -369,7 +369,7 @@ class SerialLink:
             outcome = str(message["save"])
             self.events.append(SAVE_EVENTS.get(outcome, {
                 "level": "warn",
-                "msg": f"сохранение настроек: {outcome}",
+                "msg": f"saving the settings: {outcome}",
             }))
         elif "ack" in message:
             if not message.get("ok", True):
